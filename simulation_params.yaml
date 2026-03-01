@@ -1,0 +1,74 @@
+life_events:
+  death_age_mean: 93
+  death_age_std: 8
+  death_age_min: 70
+  death_age_max: 100
+  ss_claim_age: 67
+  ss_annual_full_retirement_benefit: 40000
+
+accounts:
+  roth: 100000.00
+  traditional: 200000.00
+  brokerage: 10000.00
+  cash: 75000.00
+
+contributions:
+  annual_roth: 15000 # Annual contributions to roth accounts (ex. roth IRA)
+  annual_traditional: 33750 # Annual contributions to traditional retirement accounts (ex. 401k)
+  annual_brokerage: 10000 # Annual contributions to non tax advantaged brokerage account
+  annual_cash: 0 # Annual additional cash savings
+
+spending:
+  initial_annual_expenses: 70000.00 # In today's dollars
+  # Spending smile decline rate per year (0.99 = 1% annual decline)
+  spending_decline_start_age: 70
+  annual_spending_decline_rate: 0.99
+  spending_decline_end_age: 80
+  # Healthcare cost increase per year after spending_decline_end_age
+  annual_healthcare_increase_rate: 0.015
+  # Guardrails
+  guardrail_cut_threshold: 0.80      # cut spending if portfolio drops below this % of peak
+  guardrail_cut_amount: 0.90         # multiply spending by this when cutting
+  guardrail_cut_floor: 0.70          # never cut spending below this % of initial
+  guardrail_raise_threshold: 1.00    # raise spending if portfolio exceeds peak by this multiple
+  guardrail_raise_amount: 1.05       # multiply spending by this when raising
+  guardrail_raise_ceiling: 1.30      # never raise spending above this % of initial
+
+market: # Note: enter nominal returns, converted to real returns internally
+  stock_return: 0.08
+  bond_return: 0.04
+  stock_volatility: 0.15
+  bond_volatility: 0.05
+  inflation: 0.03
+  cash_return: 0.04
+  tax_rate: 0.15
+  # Stock/bond correlation during crisis (-0.3 = bonds rise when stocks fall)
+  stock_bond_correlation: -0.3
+
+simulation:
+  current_age: 35
+  min_retirement_age: 40
+  max_retirement_age: 65
+  target_success_probability: 0.95
+  monte_carlo_runs: 5000
+  plot_runs: 1000
+  glide_path: true
+  glide_path_start_stock_pct: 0.90
+  glide_path_end_stock_pct: 0.50
+  glide_path_years: 31               # how many years to reach end allocation
+  # Fat-tail severity for stock returns. Higher = more extreme crashes possible.
+  # 4 = fat tails matching real market crashes. 30+ ≈ normal distribution (no fat tails)
+  return_distribution_degrees_of_freedom: 4
+  # Fixed stock allocation when glide_path is false
+  static_stock_allocation: 0.75
+  normal_regime:
+    return_boost: 0.0
+    volatility_multiplier: 1.0
+    monthly_crisis_probability: 0.015
+  crisis_regime:
+    # Mild: -0.08, vol 1.5 — correction
+    # Moderate: -0.12, vol 2.0 — typical bear market
+    # Severe: -0.20, vol 2.5 — 2008-style crash
+    annual_return_drag: -0.12
+    volatility_multiplier: 2.0
+    monthly_recovery_probability: 0.15
