@@ -444,7 +444,7 @@ def load_config(path: str) -> Config:
 # ==============================
 
 if __name__ == "__main__":
-    config = load_config('simulation_params_dustan.yaml')
+    config = load_config('simulation_params.yaml')
     sim = RetirementSimulator(config)
     sim.compute_probability_curve()
     retirement_age = sim.find_retirement_age()
