@@ -25,6 +25,7 @@ class Contributions:
     annual_traditional: float
     annual_brokerage: float
     annual_cash: float
+    annual_contribution_growth_rate: float
 
 
 @dataclass
@@ -46,6 +47,7 @@ class Market:
     inflation: float
     cash_return: float
     tax_rate: float
+    capital_gains_tax_rate: float
     stock_bond_correlation: float
 
 
@@ -120,6 +122,15 @@ def init_worker(config):
 def simulate_worker(retirement_age):
     return _worker_simulator.simulate_life(retirement_age)
 
+# Uniform Lifetime Table (IRS) for RMD divisors
+RMD_TABLE = {
+    73: 26.5, 74: 25.5, 75: 24.6, 76: 23.7, 77: 22.9, 78: 22.0, 79: 21.1,
+    80: 20.2, 81: 19.4, 82: 18.5, 83: 17.7, 84: 16.8, 85: 16.0, 86: 15.2,
+    87: 14.4, 88: 13.7, 89: 12.9, 90: 12.2, 91: 11.5, 92: 10.8, 93: 10.1,
+    94: 9.5, 95: 8.9, 96: 8.4, 97: 7.8, 98: 7.3, 99: 6.8, 100: 6.4,
+    101: 6.0, 102: 5.6, 103: 5.2, 104: 4.9, 105: 4.6,
+}
+
 # ==============================
 # CORE LIFE SIMULATION
 # ==============================
@@ -152,7 +163,8 @@ class RetirementSimulator:
 
 
     def random_death_age(self):
-        age = int(np.random.normal(self.cfg.life_events.death_age_mean, self.cfg.life_events.death_age_std))
+        # Gompertz-like mortality via reflected Gumbel (left-skewed: long left tail, short right tail)
+        age = int(-np.random.gumbel(loc=-self.cfg.life_events.death_age_mean, scale=self.cfg.life_events.death_age_std))
         return max(min(age, self.cfg.life_events.death_age_max), self.cfg.life_events.death_age_min)
 
 
@@ -171,6 +183,11 @@ class RetirementSimulator:
             else:
                 reduction = (5/9 * 0.01) * 36 + (5/12 * 0.01) * (months_early - 36)
             return 1 - reduction
+
+    def rmd_divisor(self, age):
+        if age < 73:
+            return None
+        return RMD_TABLE.get(age, max(RMD_TABLE[105] - (age - 105) * 0.3, 1.0))
 
     def simulate_life(self, retirement_age: int):
         regime = 'normal'
@@ -194,10 +211,11 @@ class RetirementSimulator:
         base_monthly_expense = self.cfg.spending.initial_annual_expenses / 12
         spending_multiplier = 1.0
         peak_portfolio = self.cfg.accounts.roth + self.cfg.accounts.traditional + self.cfg.accounts.brokerage + self.cfg.accounts.cash
-        monthly_roth_contrib = self.cfg.contributions.annual_roth / 12
-        monthly_traditional_contrib = self.cfg.contributions.annual_traditional / 12
-        monthly_brokerage_contrib = self.cfg.contributions.annual_brokerage / 12
-        monthly_cash_contrib = self.cfg.contributions.annual_cash / 12
+        base_roth_contrib = self.cfg.contributions.annual_roth / 12
+        base_traditional_contrib = self.cfg.contributions.annual_traditional / 12
+        base_brokerage_contrib = self.cfg.contributions.annual_brokerage / 12
+        base_cash_contrib = self.cfg.contributions.annual_cash / 12
+        contrib_growth_rate = self.cfg.contributions.annual_contribution_growth_rate
         monthly_ss = self.ss_income / 12
 
         min_portfolio = float("inf")
@@ -237,7 +255,8 @@ class RetirementSimulator:
 
             raw_shock = stock_shocks_raw[month]
             stock_shock = raw_shock * regime_params['vol_mult']
-            bond_shock = self.cfg.market.stock_bond_correlation * raw_shock * regime_params['vol_mult'] + bond_randoms[month]
+            corr = self.cfg.market.stock_bond_correlation
+            bond_shock = corr * stock_shock + np.sqrt(1 - corr**2) * bond_randoms[month]
 
             stock_growth = monthly_stock_rate + regime_params['return_boost'] + stock_shock
             bond_growth = monthly_bond_rate + bond_shock
@@ -252,10 +271,12 @@ class RetirementSimulator:
             total = roth + traditional + brokerage + cash
 
             if month < retirement_month:
-                roth += monthly_roth_contrib
-                traditional += monthly_traditional_contrib
-                brokerage += monthly_brokerage_contrib
-                cash += monthly_cash_contrib
+                years_elapsed = month / 12
+                growth = (1 + contrib_growth_rate) ** years_elapsed
+                roth += base_roth_contrib * growth
+                traditional += base_traditional_contrib * growth
+                brokerage += base_brokerage_contrib * growth
+                cash += base_cash_contrib * growth
             else:
                 total = roth + traditional + brokerage + cash
                 if month == retirement_month:
@@ -271,7 +292,7 @@ class RetirementSimulator:
                     years_over_start = self.cfg.spending.spending_decline_end_age - self.cfg.spending.spending_decline_start_age
                     decline_at_end = self.cfg.spending.annual_spending_decline_rate ** years_over_start
                     years_over_end = age - self.cfg.spending.spending_decline_end_age
-                    healthcare_ramp = 1 + self.cfg.spending.annual_healthcare_increase_rate * years_over_end
+                    healthcare_ramp = (1 + self.cfg.spending.annual_healthcare_increase_rate) ** years_over_end
                     decline_factor = decline_at_end * healthcare_ramp
 
                 # ---- Guardrails ----
@@ -302,9 +323,13 @@ class RetirementSimulator:
                     remaining_needed -= withdraw
 
                 if remaining_needed > 0 and brokerage > 0:
-                    withdraw = min(brokerage, remaining_needed)
+                    # Approximate 50% of brokerage as cost basis (tax only on gains)
+                    cg_tax_rate = self.cfg.market.capital_gains_tax_rate
+                    effective_tax = cg_tax_rate * 0.5  # ~half is taxable gains
+                    gross_needed = remaining_needed / (1 - effective_tax)
+                    withdraw = min(brokerage, gross_needed)
                     brokerage -= withdraw
-                    remaining_needed -= withdraw
+                    remaining_needed -= withdraw * (1 - effective_tax)
 
                 if remaining_needed > 0 and traditional > 0:
                     gross_needed = remaining_needed / (1 - self.cfg.market.tax_rate)
@@ -319,6 +344,17 @@ class RetirementSimulator:
 
                 if remaining_needed > 0:
                     return False, min_portfolio, initial_withdrawal_rate, total
+
+                # Enforce RMDs from traditional accounts (age 73+)
+                if age >= 73 and traditional > 0 and month % 12 == 0:
+                    divisor = self.rmd_divisor(int(age))
+                    if divisor:
+                        annual_rmd = traditional / divisor
+                        monthly_rmd = annual_rmd / 12
+                        # Force withdrawal and move after-tax proceeds to cash
+                        forced = min(traditional, monthly_rmd * 12)
+                        traditional -= forced
+                        cash += forced * (1 - self.cfg.market.tax_rate)
 
             total = roth + traditional + brokerage + cash
             min_portfolio = min(min_portfolio, total)
@@ -420,7 +456,17 @@ def load_config(path: str) -> Config:
         accounts=Accounts(**raw["accounts"]),
         contributions=Contributions(**raw["contributions"]),
         life_events=LifeEvents(**raw["life_events"]),
-        market=Market(**raw["market"]),
+        market=Market(
+            stock_return=raw["market"]["stock_return"],
+            bond_return=raw["market"]["bond_return"],
+            stock_volatility=raw["market"]["stock_volatility"],
+            bond_volatility=raw["market"]["bond_volatility"],
+            inflation=raw["market"]["inflation"],
+            cash_return=raw["market"]["cash_return"],
+            tax_rate=raw["market"]["tax_rate"],
+            capital_gains_tax_rate=raw["market"]["capital_gains_tax_rate"],
+            stock_bond_correlation=raw["market"]["stock_bond_correlation"],
+        ),
         simulation=Simulation(
             current_age=sim["current_age"],
             min_retirement_age=sim["min_retirement_age"],
@@ -444,7 +490,7 @@ def load_config(path: str) -> Config:
 # ==============================
 
 if __name__ == "__main__":
-    config = load_config('simulation_params.yaml')
+    config = load_config('simulation_params_dustan.yaml')
     sim = RetirementSimulator(config)
     sim.compute_probability_curve()
     retirement_age = sim.find_retirement_age()

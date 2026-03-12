@@ -9,12 +9,13 @@ contributions:
   annual_traditional: 33750 # Annual contributions to traditional retirement accounts (ex. 401k)
   annual_brokerage: 10000 # Annual contributions to non tax advantaged brokerage account
   annual_cash: 0 # Annual additional cash savings
+  annual_contribution_growth_rate: 0.03  # contributions grow with inflation
 
 life_events:
   death_age_mean: 93
   death_age_std: 8
   death_age_min: 70
-  death_age_max: 100
+  death_age_max: 105
   ss_claim_age: 67
   ss_annual_full_retirement_benefit: 40000
 
@@ -25,7 +26,8 @@ market: # Note: enter nominal returns, converted to real returns internally
   bond_volatility: 0.05
   inflation: 0.03
   cash_return: 0.04
-  tax_rate: 0.15
+  tax_rate: 0.22
+  capital_gains_tax_rate: 0.15
   # Stock/bond correlation during crisis (-0.3 = bonds rise when stocks fall)
   stock_bond_correlation: -0.3
 
@@ -42,7 +44,7 @@ simulation:
   glide_path_years: 31               # how many years to reach end allocation
   # Fat-tail severity for stock returns. Higher = more extreme crashes possible.
   # 4 = fat tails matching real market crashes. 30+ ≈ normal distribution (no fat tails)
-  return_distribution_degrees_of_freedom: 4
+  return_distribution_degrees_of_freedom: 6
   # Fixed stock allocation when glide_path is false
   static_stock_allocation: 0.75
   normal_regime:
