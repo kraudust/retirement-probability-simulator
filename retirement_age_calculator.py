@@ -92,10 +92,10 @@ class Spending:
     annual_spending_decline_rate: float
     spending_decline_end_age: int
     annual_healthcare_increase_rate: float
-    guardrail_cut_threshold: float
+    guardrail_cut_return_threshold: float
     guardrail_cut_amount: float
     guardrail_cut_floor: float
-    guardrail_raise_threshold: float
+    guardrail_raise_return_threshold: float
     guardrail_raise_amount: float
     guardrail_raise_ceiling: float
 
@@ -144,7 +144,7 @@ class RetirementSimulator:
                 'p_switch': self.cfg.simulation.normal_regime.monthly_crisis_probability
             },
             'crisis': {
-                'return_boost': self.cfg.simulation.crisis_regime.annual_return_drag / 12,
+                'return_boost': np.log(1 + self.cfg.simulation.crisis_regime.annual_return_drag) / 12,
                 'vol_mult': self.cfg.simulation.crisis_regime.volatility_multiplier,
                 'p_switch': self.cfg.simulation.crisis_regime.monthly_recovery_probability
             }
@@ -163,9 +163,12 @@ class RetirementSimulator:
 
 
     def random_death_age(self):
-        # Gompertz-like mortality via reflected Gumbel (left-skewed: long left tail, short right tail)
-        age = int(-np.random.gumbel(loc=-self.cfg.life_events.death_age_mean, scale=self.cfg.life_events.death_age_std))
-        return max(min(age, self.cfg.life_events.death_age_max), self.cfg.life_events.death_age_min)
+        age = int(np.clip(
+            np.random.normal(self.cfg.life_events.death_age_mean, self.cfg.life_events.death_age_std),
+            self.cfg.life_events.death_age_min,
+            self.cfg.life_events.death_age_max
+        ))
+        return age
 
 
     # Approximate Social Security adjustment factors
@@ -173,8 +176,8 @@ class RetirementSimulator:
         months_diff = round((claim_age - full_retirement_age) * 12)
         
         if months_diff >= 0:
-            # Delayed: 8% per year (simple)
-            return 1 + 0.08 * (months_diff / 12)
+            # Delayed: 8% per year compounded
+            return 1.08 ** (months_diff / 12)
         else:
             # Early: 5/9% per month for first 36 months, 5/12% beyond that
             months_early = abs(months_diff)
@@ -204,13 +207,14 @@ class RetirementSimulator:
         real_bond_return = self.real_return(self.cfg.market.bond_return)
         real_cash_return = self.real_return(self.cfg.market.cash_return)
 
-        monthly_stock_rate = self.monthly_rate(real_stock_return)
-        monthly_bond_rate = self.monthly_rate(real_bond_return)
+        monthly_log_stock_rate = np.log(1 + real_stock_return) / 12
+        monthly_log_bond_rate = np.log(1 + real_bond_return) / 12
         monthly_cash_rate = self.monthly_rate(real_cash_return)
 
         base_monthly_expense = self.cfg.spending.initial_annual_expenses / 12
         spending_multiplier = 1.0
-        peak_portfolio = self.cfg.accounts.roth + self.cfg.accounts.traditional + self.cfg.accounts.brokerage + self.cfg.accounts.cash
+        year_start_portfolio = None
+        year_withdrawals = 0.0
         base_roth_contrib = self.cfg.contributions.annual_roth / 12
         base_traditional_contrib = self.cfg.contributions.annual_traditional / 12
         base_brokerage_contrib = self.cfg.contributions.annual_brokerage / 12
@@ -258,10 +262,10 @@ class RetirementSimulator:
             corr = self.cfg.market.stock_bond_correlation
             bond_shock = corr * stock_shock + np.sqrt(1 - corr**2) * bond_randoms[month]
 
-            stock_growth = monthly_stock_rate + regime_params['return_boost'] + stock_shock
-            bond_growth = monthly_bond_rate + bond_shock
+            stock_growth = np.exp(monthly_log_stock_rate + regime_params['return_boost'] + stock_shock) - 1
+            bond_growth = np.exp(monthly_log_bond_rate + bond_shock) - 1
 
-            growth_factor = max(0, 1 + stock_growth * stock_allocation + bond_growth * bond_allocation)
+            growth_factor = max(1e-10, 1 + stock_allocation * stock_growth + bond_allocation * bond_growth)
 
             roth *= growth_factor
             traditional *= growth_factor
@@ -280,8 +284,9 @@ class RetirementSimulator:
             else:
                 total = roth + traditional + brokerage + cash
                 if month == retirement_month:
-                    peak_portfolio = total
                     retirement_portfolio = total
+                    year_start_portfolio = total
+                    year_withdrawals = 0.0
 
                 # ---- Age-based spending adjustment ----
                 decline_factor = 1.0
@@ -295,14 +300,16 @@ class RetirementSimulator:
                     healthcare_ramp = (1 + self.cfg.spending.annual_healthcare_increase_rate) ** years_over_end
                     decline_factor = decline_at_end * healthcare_ramp
 
-                # ---- Guardrails ----
-                if (month - retirement_month) % 12 == 0:
-                    if total < self.cfg.spending.guardrail_cut_threshold * peak_portfolio:
-                        spending_multiplier = max(spending_multiplier * self.cfg.spending.guardrail_cut_amount, self.cfg.spending.guardrail_cut_floor)
-                    elif total > self.cfg.spending.guardrail_raise_threshold * peak_portfolio:
-                        spending_multiplier = min(spending_multiplier * self.cfg.spending.guardrail_raise_amount, self.cfg.spending.guardrail_raise_ceiling)
-
-                peak_portfolio = max(peak_portfolio, total)
+                # ---- Guardrails (market return based) ----
+                if (month - retirement_month) % 12 == 0 and month > retirement_month:
+                    if year_start_portfolio and year_start_portfolio > 0:
+                        implied_return = (total + year_withdrawals) / year_start_portfolio - 1
+                        if implied_return < self.cfg.spending.guardrail_cut_return_threshold:
+                            spending_multiplier = max(spending_multiplier * self.cfg.spending.guardrail_cut_amount, self.cfg.spending.guardrail_cut_floor)
+                        elif implied_return > self.cfg.spending.guardrail_raise_return_threshold:
+                            spending_multiplier = min(spending_multiplier * self.cfg.spending.guardrail_raise_amount, self.cfg.spending.guardrail_raise_ceiling)
+                    year_start_portfolio = total
+                    year_withdrawals = 0.0
 
                 adjusted_monthly_expense = base_monthly_expense * decline_factor * spending_multiplier
 
@@ -311,6 +318,7 @@ class RetirementSimulator:
                     income += monthly_ss
 
                 withdrawal_needed = max(adjusted_monthly_expense - income, 0)
+                year_withdrawals += withdrawal_needed
 
                 if month == retirement_month:
                     initial_withdrawal_rate = (withdrawal_needed * 12) / retirement_portfolio

@@ -361,19 +361,19 @@ class RetirementApp(ctk.CTk):
 
         self._add_section(s, r, "Account Balances (today's dollars)"); r += 1
         self._add_entry(s, r, "Roth", "roth", 100000.00,
-                        "Roth IRA / Roth 401k balance"); r += 1
+                        "Roth retirement accounts balance (Roth IRA, Roth 401k)"); r += 1
         self._add_entry(s, r, "Traditional", "traditional", 200000.00,
-                        "Traditional 401k / IRA balance"); r += 1
+                        "Traditional retirement accounts balance (IRA, 401k)"); r += 1
         self._add_entry(s, r, "Brokerage", "brokerage", 10000.00,
-                        "Taxable brokerage account balance"); r += 1
+                        "Taxable brokerage accounts balance"); r += 1
         self._add_entry(s, r, "Cash / Savings", "cash", 75000.00,
-                        "Cash, savings, money market"); r += 1
+                        "Cash, savings, money market balance"); r += 1
 
         self._add_section(s, r, "Annual Contributions"); r += 1
         self._add_entry(s, r, "Roth", "annual_roth", 15000,
-                        "Annual Roth IRA / Roth 401k contributions"); r += 1
+                        "Annual roth retirement accounts contributions (Roth IRA, Roth 401k)"); r += 1
         self._add_entry(s, r, "Traditional", "annual_traditional", 33750,
-                        "Annual 401k contributions (including employer match)"); r += 1
+                        "Annual traditional retirement accounts contributions (including employer match) (IRA, 401k)"); r += 1
         self._add_entry(s, r, "Brokerage", "annual_brokerage", 10000,
                         "Annual taxable brokerage contributions"); r += 1
         self._add_entry(s, r, "Cash", "annual_cash", 0,
@@ -423,7 +423,7 @@ class RetirementApp(ctk.CTk):
         self._add_entry(s, r, "Capital Gains Tax", "cg_tax_rate", 0.15,
                         "Long-term capital gains tax on brokerage gains"); r += 1
         self._add_entry(s, r, "Stock/Bond Correlation", "stock_bond_corr", -0.3,
-                        "How stocks & bonds move together (-0.3 = bonds rise when stocks fall)"); r += 1
+                        "Range -1.0 to 1.0. -0.3 means a 10% stock drop yields ~3% bond gain (a hedge)"); r += 1
 
         self._add_section(s, r, "Asset Allocation (Glide Path)"); r += 1
         self._add_checkbox(s, r, "Use Glide Path", "glide_path", True,
@@ -460,14 +460,14 @@ class RetirementApp(ctk.CTk):
                         "Annual healthcare cost increase after decline ends (0.015 = 1.5%)"); r += 1
 
         self._add_section(s, r, "Spending Guardrails"); r += 1
-        self._add_entry(s, r, "Cut Threshold", "guard_cut_thresh", 0.80,
-                        "Cut spending when portfolio falls below this % of peak"); r += 1
+        self._add_entry(s, r, "Cut Return Threshold", "guard_cut_thresh", -0.10,
+                        "Cut spending if the market's real return was worse than this in a year (-0.10 = -10%)"); r += 1
         self._add_entry(s, r, "Cut Amount", "guard_cut_amt", 0.90,
                         "Multiply spending by this when cutting (0.90 = 10% cut)"); r += 1
         self._add_entry(s, r, "Cut Floor", "guard_cut_floor", 0.70,
                         "Never cut spending below this fraction of initial"); r += 1
-        self._add_entry(s, r, "Raise Threshold", "guard_raise_thresh", 1.00,
-                        "Raise spending when portfolio exceeds this multiple of peak"); r += 1
+        self._add_entry(s, r, "Raise Return Threshold", "guard_raise_thresh", 0.15,
+                        "Raise spending if the market's real return exceeded this in a year (0.15 = 15%)"); r += 1
         self._add_entry(s, r, "Raise Amount", "guard_raise_amt", 1.05,
                         "Multiply spending by this when raising (1.05 = 5% raise)"); r += 1
         self._add_entry(s, r, "Raise Ceiling", "guard_raise_ceil", 1.30,
@@ -558,10 +558,10 @@ class RetirementApp(ctk.CTk):
                 annual_spending_decline_rate=self._get_float("decline_rate"),
                 spending_decline_end_age=self._get_int("decline_end"),
                 annual_healthcare_increase_rate=self._get_float("healthcare_rate"),
-                guardrail_cut_threshold=self._get_float("guard_cut_thresh"),
+                guardrail_cut_return_threshold=self._get_float("guard_cut_thresh"),
                 guardrail_cut_amount=self._get_float("guard_cut_amt"),
                 guardrail_cut_floor=self._get_float("guard_cut_floor"),
-                guardrail_raise_threshold=self._get_float("guard_raise_thresh"),
+                guardrail_raise_return_threshold=self._get_float("guard_raise_thresh"),
                 guardrail_raise_amount=self._get_float("guard_raise_amt"),
                 guardrail_raise_ceiling=self._get_float("guard_raise_ceil"),
             ),

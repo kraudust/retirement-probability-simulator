@@ -37,7 +37,6 @@ simulation:
   max_retirement_age: 65
   target_success_probability: 0.95
   monte_carlo_runs: 5000
-  plot_runs: 1000
   glide_path: true
   glide_path_start_stock_pct: 0.90
   glide_path_end_stock_pct: 0.50
@@ -67,10 +66,10 @@ spending:
   spending_decline_end_age: 80
   # Healthcare cost increase per year after spending_decline_end_age
   annual_healthcare_increase_rate: 0.015
-  # Guardrails
-  guardrail_cut_threshold: 0.80      # cut spending if portfolio drops below this % of peak
-  guardrail_cut_amount: 0.90         # multiply spending by this when cutting
-  guardrail_cut_floor: 0.70          # never cut spending below this % of initial
-  guardrail_raise_threshold: 1.00    # raise spending if portfolio exceeds peak by this multiple
-  guardrail_raise_amount: 1.05       # multiply spending by this when raising
-  guardrail_raise_ceiling: 1.30      # never raise spending above this % of initial
+  # Guardrails: adjust spending based on actual market return that year (not portfolio vs. peak)
+  guardrail_cut_return_threshold: -0.10   # cut spending if real market return worse than -10% in a year
+  guardrail_cut_amount: 0.90              # multiply spending by this when cutting
+  guardrail_cut_floor: 0.70              # never cut spending below this % of initial
+  guardrail_raise_return_threshold: 0.15  # raise spending if real market return exceeded 15% in a year
+  guardrail_raise_amount: 1.05            # multiply spending by this when raising
+  guardrail_raise_ceiling: 1.30          # never raise spending above this % of initial
