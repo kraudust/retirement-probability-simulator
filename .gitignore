@@ -1,3 +1,10 @@
 .venv/
 __pycache__/
 *.pyc
+.pytest_cache/
+CLAUDE.md
+
+# PyInstaller build output
+build/
+dist/
+*.spec.bak

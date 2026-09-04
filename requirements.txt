@@ -9,8 +9,8 @@ pillow==12.1.1
 pyparsing==3.3.2
 python-dateutil==2.9.0.post0
 PyYAML==6.0.3
-scipy==1.17.0
 six==1.17.0
 tqdm==4.67.3
 customtkinter==5.2.2
-pyinstaller==6.13.0
+pyinstaller==6.22.1
+pytest==9.1.1

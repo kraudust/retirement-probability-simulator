@@ -1,0 +1,86 @@
+name: Build desktop apps
+
+# Produces a double-clickable app for macOS and Windows.
+#
+#   - push a tag like v1.0.0  -> builds both and attaches them to a GitHub Release
+#   - "Run workflow" button   -> builds both and leaves them as downloadable
+#                                artifacts, without publishing a release
+#
+# PyInstaller cannot cross-compile, which is the whole reason this exists: the
+# macOS app must be built on a macOS runner and the Windows one on Windows.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write        # needed to create the release on a tag
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false   # a Windows failure should not bin the macOS build
+      matrix:
+        include:
+          - os: macos-latest
+            artifact: RetirementSimulator-macOS
+          - os: windows-latest
+            artifact: RetirementSimulator-Windows
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"     # PyInstaller support lags the newest release
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run the test suite
+        # Never ship a build whose engine tests fail.
+        run: python -m pytest tests/ -q
+
+      - name: Build the app
+        run: pyinstaller RetirementSimulator.spec --noconfirm
+
+      - name: Smoke-test the build (macOS)
+        if: runner.os == 'macOS'
+        # Confirms the bundle starts at all. The app is windowed, so launch it,
+        # give it a few seconds, and check the process is still alive.
+        run: |
+          ./dist/RetirementSimulator/RetirementSimulator &
+          sleep 15
+          pgrep -f RetirementSimulator > /dev/null && echo "launched OK"
+          pkill -f RetirementSimulator || true
+
+      - name: Package for download
+        shell: bash
+        run: |
+          mkdir -p upload
+          cp HOW-TO-RUN.md upload/ 2>/dev/null || true
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            # ditto preserves the .app bundle structure; plain zip can mangle it
+            ditto -c -k --sequesterRsrc --keepParent \
+              "dist/Retirement Simulator.app" "upload/${{ matrix.artifact }}.zip"
+          else
+            powershell -Command "Compress-Archive -Path 'dist/RetirementSimulator/*' -DestinationPath 'upload/${{ matrix.artifact }}.zip'"
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: upload/
+
+      - name: Attach to the release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: upload/${{ matrix.artifact }}.zip
+          body_path: HOW-TO-RUN.md
+          fail_on_unmatched_files: true

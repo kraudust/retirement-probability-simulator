@@ -2,32 +2,23 @@
 # ALL DOLLAR FIGURES ARE IN TODAY'S DOLLARS (real, inflation-adjusted).
 # Enter NOMINAL market returns; inflation is divided out internally.
 # Any growth rate below is therefore growth ABOVE inflation.
-#
-# One exception, and it is deliberate: brokerage_cost_basis. Balances float with
-# the price level and hold their real value, but a cost basis is a frozen
-# historical number the IRS never indexes, so the model decays its real value with
-# inflation -- which is exactly why inflation alone creates a taxable gain.
 # ============================================================================
 
 accounts:
-  roth: 150000
-  traditional: 300000
-  brokerage: 5000
-  cash: 100000
+  roth: 135700
+  traditional: 270000
+  brokerage: 5500
+  cash: 86000
   # What you actually PAID for the brokerage holdings. Only the gain above this is
   # taxable when you sell. If you don't know it, a reasonable guess is 60-80% of the
   # balance for a recently funded account. The simulator tracks it from here on:
-  # sales remove basis pro-rata, reinvested dividends and new contributions add it,
-  # and INFLATION ERODES IT. That last part is not a modelling choice -- the IRS
-  # taxes the gain over the raw dollars you paid and never adjusts them for
-  # inflation, so rising prices alone turn into a taxable gain. A $10k lot held 30
-  # years at 8% nominal / 3% inflation is 90% taxable gain, not 76%.
-  brokerage_cost_basis: 3000
+  # sales remove basis pro-rata, reinvested dividends and new contributions add it.
+  brokerage_cost_basis: 4500
 
 contributions:
-  annual_roth: 15000           # Roth IRA / Roth 401k
+  annual_roth: 15000          # Roth IRA / Roth 401k
   annual_traditional: 33750   # Traditional 401k / IRA, including employer match
-  annual_brokerage: 10000      # Taxable brokerage
+  annual_brokerage: 10000     # Taxable brokerage
   annual_cash: 0              # Additional cash savings
   # REAL growth, i.e. growth ABOVE inflation, because this model is in today's
   # dollars. 0.0 = your contributions keep pace with inflation (a cost-of-living
@@ -59,7 +50,7 @@ life_events:
   ss_annual_full_retirement_benefit: 40000
   # Years of Social Security-covered earnings you already have. SS averages your
   # best 35 years and missing years count as zero in that average.
-  ss_earnings_years_at_current_age: 15
+  ss_earnings_years_at_current_age: 13
   # SSA work credits you already have (4 per year worked, shown on your SSA
   # statement). 40 credits -- roughly ten working years -- are required for ANY
   # retirement benefit; retire before earning them and the model pays nothing.
@@ -138,12 +129,7 @@ taxes:
     qualifying_surviving_spouse: 32200
     head_of_household: 24150
 
-  # IRC 63(f) adds this much for EACH filer who has reached 65 -- permanent law,
-  # and it applies in nearly every year of a retirement. A couple both past 65
-  # deducts 32,200 + 2 x 1,650 = 35,500; a survivor filing single gets
-  # 16,100 + 2,050 = 18,150. The married figure is per spouse.
-  # (The temporary OBBBA "senior deduction" expires after 2028 and is deliberately
-  # not modelled -- a real-terms model would wrongly grant it for life.)
+  # IRC 63(f), PER qualifying filer aged 65+ (2026). MFJ can claim it twice.
   additional_standard_deductions_65plus:
     single: 2050
     married_filing_jointly: 1650
