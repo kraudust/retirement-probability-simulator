@@ -16,6 +16,7 @@ import customtkinter as ctk
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 
+from field_help import FIELD_HELP
 from retirement_age_calculator import (
     RetirementSimulator,
     TRAJECTORY_SAMPLES,
@@ -244,21 +245,50 @@ class RetirementApp(ctk.CTk):
     # Widget helpers
     # ------------------------------------------------------------------
     def _add_section(self, parent, row, title):
-        """Bold section header spanning the three grid columns."""
+        """Bold section header spanning the grid columns."""
         ctk.CTkLabel(parent, text=title,
                      font=ctk.CTkFont(size=14, weight="bold")).grid(
-            row=row, column=0, columnspan=3, sticky="w", padx=10, pady=(15, 5))
+            row=row, column=0, columnspan=4, sticky="w", padx=10, pady=(15, 5))
+
+    def _add_help_button(self, parent, row, label, key, desc):
+        """The '?' beside a row. The gray text is a one-line reminder; this opens
+        the full explanation of what the number means and how to choose one."""
+        ctk.CTkButton(parent, text="?", width=26,
+                      command=lambda: self._show_help(label, key, desc)).grid(
+            row=row, column=2, padx=(2, 4), pady=2)
+
+    def _show_help(self, label, key, desc):
+        """Popup explaining one input. Falls back to the row's gray text if the
+        field has no long-form entry yet, so a new parameter is never help-less."""
+        text = FIELD_HELP.get(key, desc).strip()
+
+        win = ctk.CTkToplevel(self)
+        win.title(label)
+        win.geometry("560x360")
+        win.transient(self)                 # stays above the main window
+        ctk.CTkLabel(win, text=label, anchor="w",
+                     font=ctk.CTkFont(size=15, weight="bold")).pack(
+            fill="x", padx=15, pady=(15, 5))
+        box = ctk.CTkTextbox(win, wrap="word", font=ctk.CTkFont(size=13))
+        box.pack(fill="both", expand=True, padx=15, pady=5)
+        box.insert("1.0", text)
+        box.configure(state="disabled")     # readable and selectable, not editable
+        ctk.CTkButton(win, text="Close", command=win.destroy).pack(pady=(5, 15))
+        # Grab focus AFTER the window exists, or macOS silently ignores it.
+        win.after(100, win.lift)
 
     def _add_entry(self, parent, row, label, key, desc, width=145):
-        """One config row: label | text entry (pre-filled from config) | gray help
-        text. `key` must exist in FIELD_PATHS; the entry registers in self.entries."""
+        """One config row: label | text entry (pre-filled from config) | '?' |
+        gray help text. `key` must exist in FIELD_PATHS; the entry registers in
+        self.entries."""
         ctk.CTkLabel(parent, text=label, anchor="w", width=220).grid(
             row=row, column=0, sticky="w", padx=(10, 5), pady=2)
         entry = ctk.CTkEntry(parent, width=width)
         entry.insert(0, str(get_field(self.config, FIELD_PATHS[key])))
         entry.grid(row=row, column=1, padx=5, pady=2)
+        self._add_help_button(parent, row, label, key, desc)
         ctk.CTkLabel(parent, text=desc, anchor="w", text_color="gray").grid(
-            row=row, column=2, sticky="w", padx=(5, 10), pady=2)
+            row=row, column=3, sticky="w", padx=(5, 10), pady=2)
         self.entries[key] = entry
 
     def _add_checkbox(self, parent, row, label, key, desc):
@@ -267,8 +297,9 @@ class RetirementApp(ctk.CTk):
         var = ctk.BooleanVar(value=bool(get_field(self.config, CHECKBOX_PATHS[key])))
         ctk.CTkCheckBox(parent, text=label, variable=var).grid(
             row=row, column=0, columnspan=2, sticky="w", padx=(10, 5), pady=2)
+        self._add_help_button(parent, row, label, key, desc)
         ctk.CTkLabel(parent, text=desc, anchor="w", text_color="gray").grid(
-            row=row, column=2, sticky="w", padx=(5, 10), pady=2)
+            row=row, column=3, sticky="w", padx=(5, 10), pady=2)
         self.checkboxes[key] = var
 
     def _refresh_widgets(self):
@@ -324,7 +355,7 @@ class RetirementApp(ctk.CTk):
         Security. Everything a first-time user needs to produce an answer."""
         s = ctk.CTkScrollableFrame(tab)
         s.pack(fill="both", expand=True)
-        s.grid_columnconfigure(2, weight=1)
+        s.grid_columnconfigure(3, weight=1)
         self._scrollable_frames.append(s)
         r = 0
 
@@ -389,7 +420,7 @@ class RetirementApp(ctk.CTk):
         spending curve and guardrails, mortality, and the spouse block."""
         s = ctk.CTkScrollableFrame(tab)
         s.pack(fill="both", expand=True)
-        s.grid_columnconfigure(2, weight=1)
+        s.grid_columnconfigure(3, weight=1)
         self._scrollable_frames.append(s)
         r = 0
 
