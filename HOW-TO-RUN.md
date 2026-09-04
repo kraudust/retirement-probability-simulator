@@ -75,7 +75,7 @@ Moving the `.exe` out on its own will stop it working.
    put away each year, and what you spend.
 2. Look through the **Advanced Settings** tab too (see below).
 3. Click **Run Simulation**.
-4. Wait about a minute. The progress bar shows which retirement age it's working
+4. Wait a minute or two. The progress bar shows which retirement age it's working
    on — it tests each age in turn, so it advances in steps every couple of
    seconds rather than sliding smoothly.
 5. Results appear below, with two tabs of charts:

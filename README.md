@@ -24,7 +24,7 @@ Edit `simulation_params.yaml` with your numbers, then:
 
 ```bash
 python3 retirement_age_calculator.py   # CLI: prints assumptions + results, opens charts
-python3 retirement_gui.py              # desktop GUI with the same engine
+python3 app_main.py                    # desktop GUI with the same engine
 ```
 
 The CLI prints an **effective assumptions** block before the results. Read it. Several
@@ -225,7 +225,9 @@ Worth understanding before you act on a number:
 | File | Purpose |
 |---|---|
 | `retirement_age_calculator.py` | Config schema + validation, tax engine, simulation, results, plotting, CLI |
+| `app_main.py` | GUI launcher — deliberately import-light so spawned pool workers stay cheap |
 | `retirement_gui.py` | customtkinter desktop front end — a thin view over the engine |
+| `field_help.py` | Long-form help text behind each "?" button in the GUI |
 | `simulation_params.yaml` | All parameters, heavily commented |
 
 The engine owns the config schema (`load_config` / `save_config` / `get_field` /

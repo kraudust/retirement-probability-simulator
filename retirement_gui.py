@@ -702,6 +702,10 @@ class RetirementApp(ctk.CTk):
 
 
 if __name__ == "__main__":
+    # Running this file directly works, but app_main.py is the better entry point.
+    # Spawned pool workers re-import whichever module is __main__, and this one
+    # imports customtkinter, matplotlib and tkinter at module scope -- so every
+    # worker loads a GUI toolkit to do arithmetic. app_main.py keeps those imports
+    # inside its __main__ guard, which measured 8x faster in a packaged build.
     freeze_support()
-    app = RetirementApp()
-    app.mainloop()
+    RetirementApp().mainloop()

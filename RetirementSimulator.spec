@@ -23,7 +23,10 @@ Three things here are load-bearing:
 block_cipher = None
 
 a = Analysis(
-    ['retirement_gui.py'],
+    # app_main.py, NOT retirement_gui.py. Spawned workers re-import the entry
+    # module, and retirement_gui pulls in the whole GUI toolkit at module scope --
+    # measured at 23.1s per retirement age instead of 2.8s. See app_main.py.
+    ['app_main.py'],
     pathex=[],
     binaries=[],
     # (source, destination-inside-bundle). '.' puts it next to the modules, which
