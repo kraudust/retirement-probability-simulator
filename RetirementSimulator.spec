@@ -20,6 +20,8 @@ Three things here are load-bearing:
    re-imports the app.
 """
 
+import sys
+
 block_cipher = None
 
 a = Analysis(
@@ -55,6 +57,9 @@ exe = EXE(
     [],
     exclude_binaries=True,
     name='RetirementSimulator',
+    # Windows reads the icon from the exe itself. PyInstaller ignores a .ico on
+    # macOS and a .icns on Windows, so pass the one that matches the host.
+    icon=('assets/icon.ico' if sys.platform == 'win32' else 'assets/icon.icns'),
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -81,7 +86,7 @@ coll = COLLECT(
 app = BUNDLE(
     coll,
     name='Retirement Simulator.app',
-    icon=None,
+    icon='assets/icon.icns',
     bundle_identifier='com.kraudust.retirementsimulator',
     info_plist={
         'NSHighResolutionCapable': True,
