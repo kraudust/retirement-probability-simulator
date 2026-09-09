@@ -24,7 +24,29 @@ The rule to preserve: nothing expensive at module scope in whatever file is the
 process entry point. If you add an import here, put it inside the guard.
 """
 
-from multiprocessing import freeze_support
+import os
+import sys
+
+# ---------------------------------------------------------------------------
+# Give the process real stdio before anything else runs.
+#
+# A windowed build has no console attached. On Windows, PyInstaller therefore
+# leaves sys.stdout, sys.stderr AND sys.stdin as None -- and multiprocessing's
+# child-process bootstrap writes to them while starting a worker. The workers
+# die during startup, the parent waits forever for results that never arrive,
+# and the window goes "Not Responding". That is why Run Simulation hung on
+# Windows while macOS was fine: macOS keeps real streams in a windowed app, so
+# nothing there ever exercised this path.
+#
+# This must sit at MODULE scope, not inside the __main__ guard. Spawned workers
+# re-import this file as __mp_main__, so the guard is False for them -- but they
+# are exactly the processes that need the streams to exist.
+# ---------------------------------------------------------------------------
+for _stream, _mode in (("stdin", "r"), ("stdout", "w"), ("stderr", "w")):
+    if getattr(sys, _stream, None) is None:
+        setattr(sys, _stream, open(os.devnull, _mode))
+
+from multiprocessing import freeze_support  # noqa: E402
 
 if __name__ == "__main__":
     # Must come first: it is what lets a spawned worker re-enter this file and

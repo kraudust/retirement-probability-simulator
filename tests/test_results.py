@@ -538,3 +538,67 @@ def test_chart_labels_are_never_clipped(base_cfg, figsize, stacked):
             assert box.x0 >= -0.5 and box.x1 <= w + 0.5, label.get_text()
             assert box.y0 >= -0.5 and box.y1 <= h + 0.5, label.get_text()
     plt.close("all")
+
+
+# ------------------------------------------------- headless / windowed builds
+# A windowed build has no console. On Windows, PyInstaller then leaves
+# sys.stdin/stdout/stderr as None, and anything that writes to them raises inside
+# the worker pool -- the parent waits forever for results and the window goes
+# "Not Responding". This shipped in v1.0.0 and hung the Windows release; these
+# tests pin the two halves of the fix.
+def test_progress_helper_tolerates_a_missing_stderr(monkeypatch):
+    """_progress must hand back the iterable untouched rather than dereference a
+    None stream. tqdm raises here even with disable=None, so the check has to
+    happen before tqdm is constructed."""
+    import sys as _sys
+    from retirement_age_calculator import _progress
+
+    monkeypatch.setattr(_sys, "stderr", None)
+    items = [1, 2, 3]
+    assert list(_progress(items, total=3, desc="x")) == items
+
+    # with a real (non-tty) stream it must still pass every element through
+    import io
+    monkeypatch.setattr(_sys, "stderr", io.StringIO())
+    assert list(_progress(iter(items), total=3, desc="x")) == items
+
+
+def test_full_sweep_runs_with_no_stdio_at_all(base_cfg):
+    """End to end under the exact condition a windowed Windows build creates:
+    all three standard streams are None while the worker pool runs."""
+    import sys as _sys
+    cfg = copy.deepcopy(base_cfg)
+    cfg.simulation.current_age = 60
+    cfg.simulation.min_retirement_age = 60
+    cfg.simulation.max_retirement_age = 61
+    cfg.simulation.monte_carlo_runs = 40
+    sim = RetirementSimulator(cfg)
+
+    saved = (_sys.stdin, _sys.stdout, _sys.stderr)
+    try:
+        _sys.stdin = _sys.stdout = _sys.stderr = None
+        sim.compute_probability_curve()
+    finally:
+        _sys.stdin, _sys.stdout, _sys.stderr = saved
+
+    assert sorted(sim.probability_results) == [60, 61]
+    assert all(0.0 <= v[0] <= 1.0 for v in sim.probability_results.values())
+
+
+def test_launcher_repairs_missing_streams():
+    """app_main sets stdio up at MODULE scope, because spawned workers import it
+    as __mp_main__ and never run the __main__ guard -- yet they are exactly the
+    processes whose bootstrap needs the streams."""
+    import ast
+    import pathlib
+
+    src = pathlib.Path("app_main.py").read_text()
+    tree = ast.parse(src)
+    guarded = {n for node in tree.body
+               if isinstance(node, ast.If) for n in ast.walk(node)}
+    repairs = [n for n in ast.walk(tree)
+               if isinstance(n, ast.Call) and getattr(n.func, "id", "") == "setattr"]
+    assert repairs, "app_main.py no longer repairs sys.stdin/stdout/stderr"
+    assert all(r not in guarded for r in repairs), \
+        "the stdio repair moved inside `if __name__ == \"__main__\"` -- spawned " \
+        "workers import this module as __mp_main__ and would not run it"

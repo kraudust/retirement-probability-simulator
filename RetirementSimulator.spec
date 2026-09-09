@@ -91,6 +91,6 @@ app = BUNDLE(
     info_plist={
         'NSHighResolutionCapable': True,
         'LSMinimumSystemVersion': '11.0',
-        'CFBundleShortVersionString': '1.0.0',
+        'CFBundleShortVersionString': '1.0.1',
     },
 )

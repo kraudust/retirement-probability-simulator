@@ -56,6 +56,7 @@ This is a planning model, not tax, legal, or Social Security advice. The
 
 import math
 import os
+import sys
 from dataclasses import dataclass, asdict, fields, is_dataclass
 from multiprocessing import Pool, cpu_count
 from typing import List, Optional
@@ -63,6 +64,21 @@ from typing import List, Optional
 import numpy as np
 import yaml
 from tqdm import tqdm
+
+
+def _progress(iterable, **kwargs):
+    """tqdm for a terminal, a plain pass-through everywhere else.
+
+    A windowed build has no console, and on Windows PyInstaller then leaves
+    sys.stderr as None. tqdm dereferences it either way -- even with
+    disable=None -- so it raises AttributeError inside the worker pool and the
+    GUI hangs waiting for results that never come. Checking here rather than
+    relying on the launcher keeps the engine usable from any entry point.
+    """
+    stream = sys.stderr
+    if stream is None:
+        return iterable
+    return tqdm(iterable, file=stream, disable=None, **kwargs)
 
 # matplotlib.pyplot is deliberately NOT imported here. Every worker process
 # re-imports this module (macOS/Windows spawn), and pyplot costs ~170ms and a
@@ -1768,7 +1784,7 @@ class RetirementSimulator:
 
         with Pool(processes=min(cpu_count(), max(1, runs)), initializer=init_worker,
                   initargs=(self.cfg,)) as pool:
-            results = list(tqdm(
+            results = list(_progress(
                 pool.imap(simulate_worker, [(retirement_age, s) for s in seeds],
                           chunksize=32),
                 total=runs, desc=f"Age {retirement_age}"))
@@ -1820,7 +1836,7 @@ class RetirementSimulator:
 
         with Pool(processes=min(cpu_count(), max(1, n_samples)), initializer=init_worker,
                   initargs=(self.cfg,)) as pool:
-            results = list(tqdm(
+            results = list(_progress(
                 pool.imap(simulate_trajectory_worker,
                           [(retirement_age, s) for s in seeds], chunksize=64),
                 total=n_samples, desc=f"Trajectory {retirement_age}"))
