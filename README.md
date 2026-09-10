@@ -33,6 +33,17 @@ raise the effective volatility above the calm-market number you entered, and the
 formula rescales the Social Security benefit — and this block shows what the
 simulation is actually using.
 
+## Single-file web version
+
+`RetirementSimulator.html` is the same model as a self-contained web page: open it
+in any modern browser (double-click the file, no install, no server) and it runs the
+full sweep locally using Web Workers, one per CPU core. Nothing you type leaves the
+machine. It loads and saves the same `simulation_params.yaml` files as the desktop
+app, and every input has the same "?" help. The engine is a line-for-line port of
+`retirement_age_calculator.py`; deterministic scenarios agree to the cent, and the
+Monte Carlo results agree within sampling noise (the random streams differ, so the
+same seed does not reproduce the desktop app's numbers bit for bit).
+
 ## Tests
 
 ```bash
@@ -229,6 +240,7 @@ Worth understanding before you act on a number:
 | `retirement_gui.py` | customtkinter desktop front end — a thin view over the engine |
 | `field_help.py` | Long-form help text behind each "?" button in the GUI |
 | `simulation_params.yaml` | All parameters, heavily commented |
+| `RetirementSimulator.html` | Single-file browser version: engine port + UI, no dependencies |
 
 The engine owns the config schema (`load_config` / `save_config` / `get_field` /
 `set_field` / `validate_config`) and both front ends go through it, so adding a

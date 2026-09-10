@@ -1,0 +1,2975 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Retirement Probability Simulator</title>
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #f4f4f1;
+    --surface: #ffffff;
+    --surface-2: #f7f7f4;
+    --border: #dedcd5;
+    --border-strong: #c8c6bd;
+    --text: #1a1a18;
+    --text-2: #5a5952;
+    --text-3: #8a8880;
+    --accent: #2a78d6;
+    --accent-ink: #ffffff;
+    --accent-soft: #e4effb;
+    --danger: #c0392b;
+    --danger-soft: #fdecea;
+    --ok: #008300;
+    --ok-soft: #e6f4e6;
+    --series-1: #2a78d6;
+    --series-2: #eb6834;
+    --series-3: #4a3aa7;
+    --series-4: #e34948;
+    --target: #e34948;
+    --earliest: #008300;
+    --grid: #e6e5df;
+    --shadow: 0 1px 2px rgba(0,0,0,.05), 0 4px 16px rgba(0,0,0,.05);
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg: #161614;
+      --surface: #1f1f1d;
+      --surface-2: #262624;
+      --border: #363632;
+      --border-strong: #4a4a44;
+      --text: #f1f0ea;
+      --text-2: #b9b8ae;
+      --text-3: #84837a;
+      --accent: #3987e5;
+      --accent-ink: #ffffff;
+      --accent-soft: #1d2e44;
+      --danger: #e66767;
+      --danger-soft: #3a1f1f;
+      --ok: #3fb43f;
+      --ok-soft: #1c2f1c;
+      --series-1: #3987e5;
+      --series-2: #d95926;
+      --series-3: #9085e9;
+      --series-4: #e66767;
+      --target: #e66767;
+      --earliest: #3fb43f;
+      --grid: #2c2c29;
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 4px 16px rgba(0,0,0,.3);
+    }
+  }
+  * { box-sizing: border-box; }
+  html { font-size: 15px; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text); font-family: var(--sans);
+    line-height: 1.45; -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 22px 18px 60px; }
+  header.top { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 8px 20px; margin-bottom: 14px; }
+  header.top h1 { font-size: 1.55rem; margin: 0; letter-spacing: -0.01em; }
+  header.top p { margin: 0; color: var(--text-2); max-width: 62ch; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); }
+
+  .toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding: 12px 14px; margin-bottom: 12px; }
+  .toolbar .spacer { flex: 1; }
+  .file-label { color: var(--text-2); font-size: .92rem; }
+  button {
+    font: inherit; font-size: .93rem; padding: 7px 14px; border-radius: 8px; cursor: pointer;
+    border: 1px solid var(--border-strong); background: var(--surface-2); color: var(--text);
+  }
+  button:hover { border-color: var(--text-3); }
+  button:disabled { opacity: .5; cursor: default; }
+  button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; padding: 9px 18px; }
+  button.primary:hover { filter: brightness(1.08); }
+  button.help { width: 26px; height: 26px; padding: 0; border-radius: 50%; font-weight: 700; font-size: .85rem; color: var(--accent); background: var(--accent-soft); border-color: transparent; }
+  button.help:hover { background: var(--accent); color: var(--accent-ink); }
+  input[type=file] { display: none; }
+
+  .tabs { display: flex; gap: 4px; padding: 8px 8px 0; border-bottom: 1px solid var(--border); }
+  .tabs button { border: none; background: transparent; color: var(--text-2); padding: 9px 14px; border-radius: 8px 8px 0 0; font-weight: 600; }
+  .tabs button:hover { color: var(--text); background: var(--surface-2); }
+  .tabs button[aria-selected="true"] { color: var(--accent); box-shadow: inset 0 -2px 0 var(--accent); background: transparent; }
+  .panel { padding: 6px 14px 16px; }
+  .panel[hidden] { display: none; }
+
+  h2.section { font-size: 1rem; margin: 20px 0 6px; padding-bottom: 4px; border-bottom: 1px solid var(--border); font-weight: 700; }
+  h2.section small { font-weight: 400; color: var(--text-2); font-size: .85rem; margin-left: 6px; }
+  .row { display: grid; grid-template-columns: 220px 160px 28px 1fr; gap: 6px 10px; align-items: center; padding: 3px 0; }
+  .row label { color: var(--text); }
+  .row .desc { color: var(--text-3); font-size: .86rem; line-height: 1.3; }
+  .row input[type=text], .row select, textarea.json {
+    font: inherit; font-family: var(--mono); font-size: .9rem; padding: 6px 8px; border-radius: 7px;
+    border: 1px solid var(--border-strong); background: var(--surface); color: var(--text); width: 100%;
+  }
+  .row input[type=text]:focus, .row select:focus, textarea.json:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: var(--accent); }
+  .row.check { grid-template-columns: 388px 28px 1fr; }
+  .row.check label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+  .row.check input { width: 16px; height: 16px; accent-color: var(--accent); }
+  .row.wide { grid-template-columns: 1fr; }
+  textarea.json { min-height: 160px; resize: vertical; white-space: pre; }
+  .row.invalid input, .row.invalid select { border-color: var(--danger); }
+  @media (max-width: 760px) {
+    .row { grid-template-columns: 1fr 28px; }
+    .row label { grid-column: 1 / -1; }
+    .row .desc { grid-column: 1 / -1; }
+    .row.check { grid-template-columns: 1fr 28px; }
+  }
+
+  .runbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 14px; margin-top: 12px; }
+  .status { color: var(--text-2); font-size: .93rem; min-width: 200px; }
+  .progress { flex: 1; min-width: 160px; height: 8px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px; overflow: hidden; }
+  .progress > div { height: 100%; width: 0; background: var(--accent); transition: width .15s linear; }
+  .error { display: none; margin-top: 10px; padding: 10px 14px; border-radius: 10px; background: var(--danger-soft); color: var(--danger); border: 1px solid color-mix(in srgb, var(--danger) 30%, transparent); white-space: pre-wrap; font-size: .92rem; }
+  .error.show { display: block; }
+
+  #results { margin-top: 14px; padding: 16px 14px; }
+  #results[hidden] { display: none; }
+  .headline { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; padding: 14px 16px; border-radius: 10px; background: var(--ok-soft); border: 1px solid color-mix(in srgb, var(--ok) 25%, transparent); margin-bottom: 14px; }
+  .headline.none { background: var(--danger-soft); border-color: color-mix(in srgb, var(--danger) 25%, transparent); }
+  .headline .big { font-size: 2.4rem; font-weight: 700; line-height: 1; letter-spacing: -0.02em; }
+  .headline .what { color: var(--text-2); }
+  .headline .what b { color: var(--text); }
+  .chart-tabs { display: flex; gap: 4px; margin-bottom: 8px; }
+  .chart-tabs button { border: 1px solid var(--border); background: var(--surface-2); color: var(--text-2); }
+  .chart-tabs button[aria-selected="true"] { background: var(--accent-soft); color: var(--accent); border-color: transparent; font-weight: 600; }
+  .chart-box { position: relative; height: 420px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); overflow: hidden; }
+  .chart-box canvas { display: block; width: 100%; height: 100%; }
+  .chart-box[hidden] { display: none; }
+  .tooltip { position: absolute; pointer-events: none; background: var(--surface); border: 1px solid var(--border-strong); border-radius: 8px; padding: 6px 9px; font-size: .82rem; box-shadow: var(--shadow); display: none; z-index: 3; min-width: 120px; }
+  .tooltip .t { font-weight: 700; margin-bottom: 3px; }
+  .tooltip .r { display: flex; justify-content: space-between; gap: 12px; }
+  .tooltip .sw { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
+  table.results { border-collapse: collapse; width: 100%; margin-top: 14px; font-variant-numeric: tabular-nums; }
+  table.results th, table.results td { padding: 6px 10px; text-align: right; border-bottom: 1px solid var(--border); font-size: .92rem; }
+  table.results th { color: var(--text-2); font-weight: 600; font-size: .82rem; text-transform: uppercase; letter-spacing: .03em; }
+  table.results th:first-child, table.results td:first-child { text-align: left; }
+  table.results tr.earliest td { background: var(--ok-soft); font-weight: 600; }
+  table.results tr.pass td:first-child::after { content: " ✓"; color: var(--ok); }
+  .table-scroll { overflow-x: auto; }
+  details { margin-top: 14px; }
+  details summary { cursor: pointer; font-weight: 600; color: var(--text-2); }
+  pre.report { font-family: var(--mono); font-size: .8rem; line-height: 1.45; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; overflow-x: auto; margin: 8px 0 0; }
+  .note { color: var(--text-3); font-size: .85rem; margin-top: 8px; }
+
+  dialog { border: 1px solid var(--border-strong); border-radius: 12px; padding: 0; max-width: 580px; width: calc(100% - 32px); background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+  dialog::backdrop { background: rgba(0,0,0,.35); }
+  dialog .dh { padding: 16px 20px 6px; font-size: 1.1rem; font-weight: 700; }
+  dialog .db { padding: 0 20px; white-space: pre-wrap; line-height: 1.5; color: var(--text); max-height: 60vh; overflow: auto; }
+  dialog .df { padding: 14px 20px 18px; text-align: right; }
+  footer { margin-top: 26px; color: var(--text-3); font-size: .85rem; }
+  footer p { margin: 6px 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1>Retirement Probability Simulator</h1>
+    <p>At what age can you retire and still have the money outlast you? This page runs thousands of randomised lifetimes per retirement age, entirely in your browser. Nothing you type leaves your computer.</p>
+  </header>
+
+  <div class="card toolbar">
+    <button id="btn-load">Load settings…</button>
+    <button id="btn-save">Save settings</button>
+    <button id="btn-reset">Reset to defaults</button>
+    <input type="file" id="file-input" accept=".yaml,.yml,.json,text/yaml,application/json">
+    <span class="file-label" id="file-label">Using default values</span>
+    <span class="spacer"></span>
+    <span class="file-label" id="cpu-label"></span>
+  </div>
+
+  <div class="card">
+    <div class="tabs" role="tablist">
+      <button role="tab" aria-selected="true" data-panel="panel-common">Common Settings</button>
+      <button role="tab" aria-selected="false" data-panel="panel-advanced">Advanced Settings</button>
+    </div>
+    <div id="panel-common" class="panel" role="tabpanel"></div>
+    <div id="panel-advanced" class="panel" role="tabpanel" hidden></div>
+  </div>
+
+  <div class="card runbar">
+    <button class="primary" id="btn-run">Run Simulation</button>
+    <button id="btn-stop" disabled>Stop</button>
+    <span class="status" id="status">Ready</span>
+    <div class="progress"><div id="progress"></div></div>
+  </div>
+  <div class="error" id="error"></div>
+
+  <div class="card" id="results" hidden>
+    <div class="headline" id="headline"></div>
+    <div class="chart-tabs" id="chart-tabs">
+      <button aria-selected="true" data-chart="chart-prob">Success by Age</button>
+      <button aria-selected="false" data-chart="chart-traj" id="traj-tab">Portfolio Trajectory</button>
+    </div>
+    <div class="chart-box" id="chart-prob"><canvas></canvas><div class="tooltip"></div></div>
+    <div class="chart-box" id="chart-traj" hidden><canvas></canvas><div class="tooltip"></div></div>
+    <div class="note" id="chart-note"></div>
+    <div class="table-scroll"><table class="results" id="results-table"></table></div>
+    <details id="traj-details"><summary>Portfolio trajectory data</summary><div class="table-scroll"><table class="results" id="traj-table"></table></div></details>
+    <details open><summary>Effective assumptions (what the simulation actually used)</summary><pre class="report" id="report"></pre></details>
+  </div>
+
+  <footer>
+    <p><b>Every dollar figure is in today's money.</b> Enter investment returns the normal way (before inflation); the model takes inflation out for you. A balance of $2,000,000 at age 70 means $2,000,000 of what a dollar buys today.</p>
+    <p>This is a planning model, not financial advice and not a prediction. Use it to compare choices against each other rather than to trust any single number. Every input has a <b>?</b> button explaining what it means and how to pick a value.</p>
+  </footer>
+</div>
+
+<dialog id="help">
+  <div class="dh" id="help-title"></div>
+  <div class="db" id="help-body"></div>
+  <div class="df"><button id="help-close">Close</button></div>
+</dialog>
+
+<!-- ======================= SIMULATION ENGINE ======================= -->
+<!-- This script also runs inside Web Workers: the page reads its text and
+     spawns workers from it, so the same code drives every thread. -->
+<script id="engine-src">
+/* Retirement Probability Simulator -- simulation engine.
+ *
+ * A line-for-line port of retirement_age_calculator.py. Everything is in REAL
+ * (today's) dollars: nominal returns are converted once, up front, by dividing
+ * out inflation. See the README for the model description.
+ *
+ * Runs identically on the page's main thread, inside a Web Worker, and under
+ * Node (for testing). No dependencies.
+ */
+var RS = (function () {
+'use strict';
+
+const TRAJECTORY_SAMPLES = 5000;
+const MIN_TRAJECTORY_SAMPLES = 100;
+
+// ==============================
+// REFERENCE TABLES
+// ==============================
+// IRS Uniform Lifetime Table (Pub. 590-B, effective 2022).
+const RMD_TABLE = {
+  72: 27.4, 73: 26.5, 74: 25.5, 75: 24.6, 76: 23.7, 77: 22.9, 78: 22.0, 79: 21.1,
+  80: 20.2, 81: 19.4, 82: 18.5, 83: 17.7, 84: 16.8, 85: 16.0, 86: 15.2,
+  87: 14.4, 88: 13.7, 89: 12.9, 90: 12.2, 91: 11.5, 92: 10.8, 93: 10.1,
+  94: 9.5, 95: 8.9, 96: 8.4, 97: 7.8, 98: 7.3, 99: 6.8, 100: 6.4,
+  101: 6.0, 102: 5.6, 103: 5.2, 104: 4.9, 105: 4.6, 106: 4.3, 107: 4.1,
+  108: 3.9, 109: 3.7, 110: 3.5, 111: 3.4, 112: 3.3, 113: 3.1, 114: 3.0,
+  115: 2.9, 116: 2.8, 117: 2.7, 118: 2.5, 119: 2.3, 120: 2.0,
+};
+
+const TWO_PERSON_FILING_STATUSES = ['married_filing_jointly'];
+
+// SSA PIA formula, 2026 bend points (monthly AIME dollars).
+const SS_PIA_BEND1 = 1286.0;
+const SS_PIA_BEND2 = 7749.0;
+const SS_PIA_RATE1 = 0.90, SS_PIA_RATE2 = 0.32, SS_PIA_RATE3 = 0.15;
+// Widow(er)'s limit (RIB-LIM, 20 CFR 404.338).
+const SS_WIDOW_LIMIT_FRACTION = 0.825;
+
+// Gompertz adult-mortality parameters per sex: [b, q75].
+const GOMPERTZ_PARAMS = { male: [0.095, 0.028], female: [0.105, 0.019] };
+
+const VALID_FILING_STATUSES = ['single', 'married_filing_jointly',
+                               'qualifying_surviving_spouse', 'head_of_household'];
+const VALID_MORTALITY_MODELS = ['ssa_inspired', 'normal'];
+const VALID_MORTALITY_SEXES = ['male', 'female'];
+
+// ==============================
+// SMALL NUMERIC HELPERS
+// ==============================
+function roundHalfEven(x) {
+  // Python's round(): ties go to the even neighbour.
+  const f = Math.floor(x), diff = x - f;
+  if (diff > 0.5) return f + 1;
+  if (diff < 0.5) return f;
+  return (f % 2 === 0) ? f : f + 1;
+}
+
+function percentileSorted(sorted, p) {
+  // numpy's default 'linear' percentile on an already-sorted array.
+  const n = sorted.length;
+  if (n === 0) return NaN;
+  const pos = (p / 100) * (n - 1);
+  const lo = Math.floor(pos), hi = Math.ceil(pos);
+  if (lo === hi) return sorted[lo];
+  return sorted[lo] + (sorted[hi] - sorted[lo]) * (pos - lo);
+}
+
+function median(values) {
+  if (values.length === 0) return NaN;
+  const s = Float64Array.from(values).sort();
+  return percentileSorted(s, 50);
+}
+
+// ==============================
+// RANDOM NUMBERS
+// ==============================
+// A seeded generator with the properties the engine relies on: every simulated
+// life draws from its OWN generator built from an explicit per-run seed, so runs
+// are exactly repeatable and common random numbers hold across retirement ages.
+// (The stream itself is sfc32, not numpy's PCG64, so a given seed does not
+// reproduce the desktop app's numbers bit for bit -- only its statistics.)
+function splitmix32(a) {
+  return function () {
+    a |= 0; a = (a + 0x9e3779b9) | 0;
+    let t = a ^ (a >>> 16); t = Math.imul(t, 0x21f0aaad);
+    t = t ^ (t >>> 15); t = Math.imul(t, 0x735a2d97);
+    return ((t = t ^ (t >>> 15)) >>> 0);
+  };
+}
+
+class Rng {
+  constructor(seed) {
+    seed = Math.floor(Math.abs(Number(seed))) || 0;
+    const lo = seed % 4294967296, hi = Math.floor(seed / 4294967296);
+    const mix = splitmix32((lo ^ Math.imul(hi | 0, 0x85ebca6b)) | 0);
+    let a = mix(), b = mix(), c = mix(), d = mix();
+    this._next = function () {
+      a >>>= 0; b >>>= 0; c >>>= 0; d >>>= 0;
+      let t = (a + b) | 0;
+      a = b ^ (b >>> 9);
+      b = (c + (c << 3)) | 0;
+      c = (c << 21) | (c >>> 11);
+      d = (d + 1) | 0;
+      t = (t + d) | 0;
+      c = (c + t) | 0;
+      return (t >>> 0) / 4294967296;
+    };
+    for (let i = 0; i < 12; i++) this._next();
+  }
+  random() { return this._next(); }
+  standardNormal() {
+    // Box-Muller, one value per call.
+    const u1 = 1 - this._next(), u2 = this._next();
+    return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+  }
+  normal(mean, std) { return mean + std * this.standardNormal(); }
+  gamma(shape) {
+    // Marsaglia & Tsang (2000), shape >= 1 (the Student-t caller guarantees it).
+    const d = shape - 1 / 3, c = 1 / Math.sqrt(9 * d);
+    for (;;) {
+      let x, v;
+      do { x = this.standardNormal(); v = 1 + c * x; } while (v <= 0);
+      v = v * v * v;
+      const u = this._next();
+      if (u < 1 - 0.0331 * x * x * x * x) return d * v;
+      if (Math.log(u) < 0.5 * x * x + d * (1 - v + Math.log(v))) return d * v;
+    }
+  }
+  standardT(df) {
+    const z = this.standardNormal();
+    const chi2 = 2 * this.gamma(df / 2);
+    return z / Math.sqrt(chi2 / df);
+  }
+}
+
+// ==============================
+// CONFIG SCHEMA (single source of truth for load/save/validate)
+// ==============================
+const SCHEMA = {
+  accounts: { roth: 'float', traditional: 'float', brokerage: 'float', cash: 'float',
+              brokerage_cost_basis: 'float' },
+  contributions: { annual_roth: 'float', annual_traditional: 'float', annual_brokerage: 'float',
+                   annual_cash: 'float', annual_contribution_growth_rate: 'float' },
+  life_events: { death_age_mean: 'int', death_age_std: 'float', death_age_min: 'int',
+                 death_age_max: 'int', mortality_model: 'str', mortality_sex: 'str',
+                 ss_claim_age: 'int', ss_annual_full_retirement_benefit: 'float',
+                 ss_earnings_years_at_current_age: 'int', ss_credits_at_current_age: 'int',
+                 ss_benefit_years_required: 'int', ss_retirement_eligibility_credits: 'int' },
+  spouse: { enabled: 'bool', age_offset: 'int', death_age_mean: 'int', death_age_std: 'float',
+            death_age_min: 'int', death_age_max: 'int', mortality_model: 'str',
+            mortality_sex: 'str', ss_claim_age: 'int', ss_annual_full_retirement_benefit: 'float',
+            ss_earnings_years_at_current_age: 'int', ss_credits_at_current_age: 'int',
+            survivor_spending_factor: 'float' },
+  market: { stock_return: 'float', bond_return: 'float', stock_volatility: 'float',
+            bond_volatility: 'float', inflation: 'float', inflation_volatility: 'float',
+            cash_return: 'float', stock_dividend_yield: 'float', bond_taxable_yield: 'float',
+            stock_bond_correlation: 'float' },
+  taxes: { filing_status: 'str', standard_deductions: 'dict',
+           additional_standard_deductions_65plus: 'dict', federal_brackets: 'dict',
+           ltcg_brackets: 'dict', state_tax_rate: 'float', early_withdrawal_penalty: 'float',
+           penalty_free_age: 'float', use_72t_sepp: 'bool',
+           assume_qualified_plan_age55_exception: 'bool', ss_provisional_thresholds: 'dict',
+           ss_max_taxable_fraction: 'float', niit_rate: 'float', niit_thresholds: 'dict' },
+  healthcare: { pre_medicare_annual_premium: 'float', medicare_annual_premium: 'float',
+                medicare_age: 'int' },
+  simulation: { current_age: 'int', min_retirement_age: 'int', max_retirement_age: 'int',
+                target_success_probability: 'float', monte_carlo_runs: 'int', random_seed: 'int',
+                common_random_numbers: 'bool', glide_path: 'bool',
+                glide_path_start_stock_pct: 'float', glide_path_end_stock_pct: 'float',
+                glide_path_years: 'int', return_distribution_degrees_of_freedom: 'int',
+                static_stock_allocation: 'float', compensate_crisis_drag: 'bool',
+                rmd_start_age: 'int',
+                normal_regime: { return_boost: 'float', volatility_multiplier: 'float',
+                                 monthly_crisis_probability: 'float' },
+                crisis_regime: { annual_return_drag: 'float', volatility_multiplier: 'float',
+                                 monthly_recovery_probability: 'float' } },
+  spending: { initial_annual_expenses: 'float', spending_decline_start_age: 'int',
+              annual_spending_decline_rate: 'float', spending_decline_end_age: 'int',
+              annual_healthcare_increase_rate: 'float', guardrail_cut_return_threshold: 'float',
+              guardrail_cut_amount: 'float', guardrail_cut_floor: 'float',
+              guardrail_raise_return_threshold: 'float', guardrail_raise_amount: 'float',
+              guardrail_raise_ceiling: 'float' },
+};
+
+class ValidationError extends Error {
+  constructor(problems) {
+    super(Array.isArray(problems) ? problems.join('; ') : String(problems));
+    this.name = 'ValidationError';
+    this.problems = Array.isArray(problems) ? problems : [String(problems)];
+  }
+}
+
+function deepClone(x) { return JSON.parse(JSON.stringify(x)); }
+
+function coerce(declared, value, where) {
+  if (declared === 'int') {
+    const v = typeof value === 'string' ? parseNumber(value, where) : Number(value);
+    if (!Number.isFinite(v)) throw new Error(`${where}: ${JSON.stringify(value)} is not a number`);
+    return Math.trunc(v);
+  }
+  if (declared === 'float') {
+    const v = typeof value === 'string' ? parseNumber(value, where) : Number(value);
+    if (typeof value === 'boolean' || !Number.isFinite(v))
+      throw new Error(`${where}: ${JSON.stringify(value)} is not a number`);
+    return v;
+  }
+  if (declared === 'bool') {
+    if (typeof value === 'string') {
+      const s = value.trim().toLowerCase();
+      if (s === 'true' || s === 'yes' || s === 'on' || s === '1') return true;
+      if (s === 'false' || s === 'no' || s === 'off' || s === '0' || s === '') return false;
+      throw new Error(`${where}: ${JSON.stringify(value)} is not a boolean`);
+    }
+    return Boolean(value);
+  }
+  if (declared === 'str') {
+    if (typeof value !== 'string') throw new Error(`${where}: expected text, got ${JSON.stringify(value)}`);
+    return value;
+  }
+  if (declared === 'dict') {
+    if (value === null || typeof value !== 'object' || Array.isArray(value))
+      throw new Error(`${where}: must map filing status -> values`);
+    return deepClone(value);
+  }
+  throw new Error(`unknown declared type ${declared}`);
+}
+
+function parseNumber(text, where) {
+  const s = String(text).trim();
+  if (s === '') throw new Error(`${where}: empty value`);
+  const v = Number(s);
+  if (!Number.isFinite(v)) throw new Error(`${where}: ${JSON.stringify(text)} is not a number`);
+  return v;
+}
+
+function buildSection(schema, raw, where) {
+  if (raw === null || typeof raw !== 'object' || Array.isArray(raw))
+    throw new Error(`${where}: expected a mapping`);
+  const out = {};
+  for (const key of Object.keys(schema)) {
+    if (!(key in raw)) throw new Error(`${where}.${key} is missing`);
+    const declared = schema[key];
+    if (typeof declared === 'object') out[key] = buildSection(declared, raw[key], `${where}.${key}`);
+    else out[key] = coerce(declared, raw[key], `${where}.${key}`);
+  }
+  for (const key of Object.keys(raw)) {
+    if (!(key in schema)) throw new Error(`${where}.${key} is not a recognised setting`);
+  }
+  return out;
+}
+
+/** Build a Config from a parsed YAML/JSON mapping. Missing or unknown keys raise. */
+function configFromDict(raw) {
+  if (raw === null || typeof raw !== 'object') throw new Error('settings file is not a mapping');
+  const out = {};
+  for (const section of Object.keys(SCHEMA)) {
+    if (!(section in raw)) throw new Error(`section '${section}' is missing`);
+    out[section] = buildSection(SCHEMA[section], raw[section], section);
+  }
+  return out;
+}
+
+function resolveField(config, path) {
+  const parts = path.split('.');
+  let obj = config, schema = SCHEMA;
+  for (let i = 0; i < parts.length - 1; i++) {
+    obj = obj[parts[i]]; schema = schema[parts[i]];
+    if (obj === undefined || schema === undefined) throw new Error(`no such config field: ${path}`);
+  }
+  const name = parts[parts.length - 1];
+  if (!(name in schema) || typeof schema[name] === 'object') throw new Error(`no such config field: ${path}`);
+  return [obj, name, schema[name]];
+}
+
+function getField(config, path) {
+  const [owner, name] = resolveField(config, path);
+  return owner[name];
+}
+
+/** Set a field, coercing to the declared type (int truncates, like int(float(x))). */
+function setField(config, path, value) {
+  const [owner, name, declared] = resolveField(config, path);
+  owner[name] = coerce(declared, value, path);
+}
+
+// ==============================
+// VALIDATION
+// ==============================
+function validateConfig(c) {
+  const errors = [];
+  const between = (v, lo, hi) => v >= lo && v <= hi;
+
+  for (const name of ['roth', 'traditional', 'brokerage', 'cash'])
+    if (c.accounts[name] < 0) errors.push(`accounts.${name} must be non-negative`);
+  if (!(c.accounts.brokerage_cost_basis >= 0 && c.accounts.brokerage_cost_basis <= c.accounts.brokerage + 1e-9))
+    errors.push('brokerage_cost_basis must be between 0 and the brokerage balance');
+
+  for (const name of ['annual_roth', 'annual_traditional', 'annual_brokerage', 'annual_cash'])
+    if (c.contributions[name] < 0) errors.push(`contributions.${name} must be non-negative`);
+  if (c.contributions.annual_contribution_growth_rate <= -1)
+    errors.push('annual_contribution_growth_rate must be > -1');
+
+  const s = c.simulation;
+  if (!(s.target_success_probability > 0 && s.target_success_probability <= 1))
+    errors.push('target_success_probability must be in (0, 1]');
+  if (s.monte_carlo_runs < 1) errors.push('monte_carlo_runs must be at least 1');
+  if (!(s.current_age > 0 && s.current_age < 120)) errors.push('current_age must be between 0 and 120');
+  if (s.min_retirement_age < s.current_age) errors.push('min_retirement_age must be >= current_age');
+  if (s.max_retirement_age < s.min_retirement_age) errors.push('max_retirement_age must be >= min_retirement_age');
+  for (const name of ['glide_path_start_stock_pct', 'glide_path_end_stock_pct', 'static_stock_allocation'])
+    if (!between(s[name], 0, 1)) errors.push(`${name} must be between 0 and 1`);
+  if (s.glide_path_years < 1) errors.push('glide_path_years must be at least 1');
+  if (s.return_distribution_degrees_of_freedom <= 2)
+    errors.push('return_distribution_degrees_of_freedom must be > 2 (a Student-t needs df > 2 to have finite variance)');
+  if (!between(s.rmd_start_age, 72, 100))
+    errors.push('rmd_start_age must be between 72 and 100 (73 if born 1951-1959, 75 if born 1960+)');
+  for (const [label, prob] of [['normal_regime.monthly_crisis_probability', s.normal_regime.monthly_crisis_probability],
+                               ['crisis_regime.monthly_recovery_probability', s.crisis_regime.monthly_recovery_probability]])
+    if (!between(prob, 0, 1)) errors.push(`${label} must be between 0 and 1`);
+  if (s.crisis_regime.annual_return_drag <= -1) errors.push('crisis_regime.annual_return_drag must be greater than -1');
+  if (s.normal_regime.return_boost <= -1) errors.push('normal_regime.return_boost must be greater than -1');
+  if (s.crisis_regime.volatility_multiplier < 0) errors.push('crisis_regime.volatility_multiplier must be non-negative');
+  if (s.normal_regime.volatility_multiplier < 0) errors.push('normal_regime.volatility_multiplier must be non-negative');
+
+  const m = c.market;
+  if (!between(m.stock_bond_correlation, -1, 1)) errors.push('stock_bond_correlation must be between -1 and 1');
+  for (const name of ['stock_volatility', 'bond_volatility', 'inflation_volatility'])
+    if (m[name] < 0) errors.push(`market.${name} must be non-negative`);
+  for (const name of ['stock_return', 'bond_return', 'cash_return', 'inflation'])
+    if (m[name] <= -1) errors.push(`market.${name} must be greater than -1`);
+  if (m.inflation_volatility > 0.25)
+    errors.push('market.inflation_volatility above 0.25 is not modelled (monthly shocks can exceed -100% on cash)');
+  for (const name of ['stock_dividend_yield', 'bond_taxable_yield'])
+    if (!between(m[name], 0, 0.2)) errors.push(`market.${name} must be between 0 and 0.2`);
+
+  for (const [label, person] of [['life_events', c.life_events], ['spouse', c.spouse]]) {
+    if (label === 'spouse' && !c.spouse.enabled) continue;
+    if (!VALID_MORTALITY_MODELS.includes(person.mortality_model))
+      errors.push(`${label}.mortality_model must be one of ${VALID_MORTALITY_MODELS.join(', ')}`);
+    if (!VALID_MORTALITY_SEXES.includes(person.mortality_sex))
+      errors.push(`${label}.mortality_sex must be one of ${VALID_MORTALITY_SEXES.join(', ')}`);
+    if (person.death_age_min > person.death_age_max) errors.push(`${label}.death_age_min must be <= death_age_max`);
+    if (!(s.current_age < person.death_age_max && person.death_age_max <= 120))
+      errors.push(`${label}.death_age_max must be above current_age and at most 120`);
+    if (!between(person.ss_claim_age, 62, 70)) errors.push(`${label}.ss_claim_age must be between 62 and 70`);
+    if (!between(person.ss_credits_at_current_age, 0, 40)) errors.push(`${label}.ss_credits_at_current_age must be 0..40`);
+    if (person.ss_earnings_years_at_current_age < 0) errors.push(`${label}.ss_earnings_years_at_current_age must be non-negative`);
+    if (person.ss_annual_full_retirement_benefit < 0) errors.push(`${label}.ss_annual_full_retirement_benefit must be non-negative`);
+    if (person.mortality_model === 'normal' && person.death_age_std < 0) errors.push(`${label}.death_age_std must be non-negative`);
+  }
+  if (c.spouse.enabled) {
+    if (!(c.spouse.age_offset > -50 && c.spouse.age_offset < 50)) errors.push('spouse.age_offset must be within 50 years');
+    if (!between(c.spouse.survivor_spending_factor, 0, 1))
+      errors.push('spouse.survivor_spending_factor must be between 0 and 1 (a survivor cannot spend more than the couple did)');
+  }
+  if (c.life_events.ss_benefit_years_required < 1) errors.push('ss_benefit_years_required must be at least 1');
+  if (!between(c.life_events.ss_retirement_eligibility_credits, 1, 40))
+    errors.push('ss_retirement_eligibility_credits must be 1..40 (current law: 40)');
+
+  const t = c.taxes;
+  if (!VALID_FILING_STATUSES.includes(t.filing_status))
+    errors.push(`filing_status must be one of ${VALID_FILING_STATUSES.join(', ')}`);
+  for (const tableName of ['standard_deductions', 'additional_standard_deductions_65plus', 'federal_brackets',
+                           'ltcg_brackets', 'ss_provisional_thresholds', 'niit_thresholds']) {
+    const table = t[tableName];
+    if (table === null || typeof table !== 'object' || Array.isArray(table)) {
+      errors.push(`taxes.${tableName} must map filing status -> values`); continue;
+    }
+    for (const status of new Set([t.filing_status, 'single']))
+      if (!(status in table)) errors.push(`taxes.${tableName} is missing an entry for '${status}'`);
+  }
+  for (const tableName of ['federal_brackets', 'ltcg_brackets']) {
+    for (const [status, brackets] of Object.entries(t[tableName] || {})) {
+      const where = `taxes.${tableName}[${status}]`;
+      if (!Array.isArray(brackets) || brackets.length === 0 || !Array.isArray(brackets[brackets.length - 1])
+          || brackets[brackets.length - 1][0] !== null) {
+        errors.push(`${where} must end with a null-bounded top bracket`); continue;
+      }
+      if (brackets.some(b => !Array.isArray(b) || b.length !== 2)) {
+        errors.push(`${where} entries must be [upper_bound, rate] pairs`); continue;
+      }
+      const bounds = brackets.slice(0, -1).map(b => b[0]);
+      if (bounds.some(b => b === null)) errors.push(`${where} may only have a null upper bound on the LAST bracket`);
+      else if (bounds.some(b => !(b > 0))) errors.push(`${where} upper bounds must be positive`);
+      else if (bounds.some((b, i) => i > 0 && bounds[i - 1] >= b))
+        errors.push(`${where} upper bounds must increase (lowest bracket first)`);
+      if (brackets.some(b => !(b[1] >= 0 && b[1] <= 1))) errors.push(`${where} rates must be between 0 and 1`);
+    }
+  }
+  for (const [status, amount] of Object.entries(t.additional_standard_deductions_65plus || {}))
+    if (!(amount >= 0)) errors.push(`taxes.additional_standard_deductions_65plus[${status}] must be non-negative`);
+  for (const [status, amount] of Object.entries(t.standard_deductions || {}))
+    if (!(amount >= 0)) errors.push(`taxes.standard_deductions[${status}] must be non-negative`);
+  for (const [status, th] of Object.entries(t.ss_provisional_thresholds || {})) {
+    if (!Array.isArray(th) || th.length !== 2) errors.push(`taxes.ss_provisional_thresholds[${status}] must be [lower, upper]`);
+    else if (!(th[0] >= 0 && th[0] < th[1])) errors.push(`taxes.ss_provisional_thresholds[${status}] must be non-negative and increasing`);
+  }
+  for (const [status, th] of Object.entries(t.niit_thresholds || {}))
+    if (!(th >= 0)) errors.push(`taxes.niit_thresholds[${status}] must be non-negative`);
+  if (!between(t.early_withdrawal_penalty, 0, 1)) errors.push('early_withdrawal_penalty must be between 0 and 1');
+  if (!between(t.penalty_free_age, 0, 120)) errors.push('penalty_free_age must be a plausible age (current law: 59.5)');
+  if (!between(t.ss_max_taxable_fraction, 0, 1)) errors.push('ss_max_taxable_fraction must be between 0 and 1');
+  if (!between(t.niit_rate, 0, 0.2)) errors.push('niit_rate must be between 0 and 0.2');
+  if (!between(t.state_tax_rate, 0, 0.2)) errors.push('state_tax_rate must be between 0 and 0.2');
+
+  const sp = c.spending;
+  if (sp.initial_annual_expenses < 0) errors.push('initial_annual_expenses must be non-negative');
+  if (!(sp.annual_spending_decline_rate > 0 && sp.annual_spending_decline_rate <= 1))
+    errors.push('annual_spending_decline_rate must be in (0, 1] (0.99 = spend 1% less each year; 1.0 = flat)');
+  if (sp.annual_healthcare_increase_rate <= -1) errors.push('annual_healthcare_increase_rate must be > -1');
+  for (const name of ['spending_decline_start_age', 'spending_decline_end_age'])
+    if (!between(sp[name], 0, 120)) errors.push(`spending.${name} must be a plausible age`);
+  if (sp.spending_decline_start_age > sp.spending_decline_end_age)
+    errors.push('spending_decline_start_age must be <= spending_decline_end_age');
+  if (sp.guardrail_cut_return_threshold >= sp.guardrail_raise_return_threshold)
+    errors.push('guardrail_cut_return_threshold must be below guardrail_raise_return_threshold');
+  if (!(sp.guardrail_cut_amount > 0 && sp.guardrail_cut_amount <= 1)) errors.push('guardrail_cut_amount must be in (0, 1]');
+  if (!(sp.guardrail_cut_floor > 0 && sp.guardrail_cut_floor <= 1)) errors.push('guardrail_cut_floor must be in (0, 1]');
+  if (sp.guardrail_raise_amount < 1) errors.push('guardrail_raise_amount must be >= 1');
+  if (sp.guardrail_raise_ceiling < 1) errors.push('guardrail_raise_ceiling must be >= 1');
+
+  for (const name of ['pre_medicare_annual_premium', 'medicare_annual_premium'])
+    if (c.healthcare[name] < 0) errors.push(`healthcare.${name} must be non-negative`);
+  if (!between(c.healthcare.medicare_age, 50, 100)) errors.push('healthcare.medicare_age must be a plausible age (Medicare is 65)');
+
+  if (errors.length) throw new ValidationError(errors);
+}
+
+// ==============================
+// TAX ENGINE
+// ==============================
+class TaxCalculator {
+  constructor(cfg) { this.cfg = cfg; }
+
+  standardDeduction(status) { return Number(this.cfg.standard_deductions[status]); }
+
+  totalStandardDeduction(status, age, spouseAge) {
+    const base = this.standardDeduction(status);
+    const perPerson = Number(this.cfg.additional_standard_deductions_65plus[status]);
+    let qualifying = age >= 65 ? 1 : 0;
+    if (TWO_PERSON_FILING_STATUSES.includes(status) && spouseAge != null && spouseAge >= 65) qualifying += 1;
+    return base + perPerson * qualifying;
+  }
+
+  federalBrackets(status) { return this.cfg.federal_brackets[status]; }
+  ltcgBrackets(status) { return this.cfg.ltcg_brackets[status]; }
+  ssThresholds(status) { return this.cfg.ss_provisional_thresholds[status]; }
+  niitThreshold(status) { return Number(this.cfg.niit_thresholds[status]); }
+
+  static bracketTax(taxable, brackets) {
+    if (taxable <= 0) return 0.0;
+    let tax = 0.0, lower = 0.0;
+    for (let i = 0; i < brackets.length; i++) {
+      const upper = brackets[i][0], rate = brackets[i][1];
+      const cap = upper === null ? taxable : Math.min(taxable, upper);
+      if (cap > lower) tax += (cap - lower) * rate;
+      lower = cap;
+      if (upper !== null && taxable <= upper) break;
+    }
+    return tax;
+  }
+
+  taxableSocialSecurity(ss, otherIncome, status) {
+    if (ss <= 0) return 0.0;
+    const [t1, t2] = this.ssThresholds(status);
+    const provisional = otherIncome + 0.5 * ss;
+    if (provisional <= t1) return 0.0;
+    if (provisional <= t2) return Math.min(0.5 * (provisional - t1), 0.5 * ss);
+    const tier1 = Math.min(0.5 * (t2 - t1), 0.5 * ss);
+    return Math.min(0.85 * (provisional - t2) + tier1, this.cfg.ss_max_taxable_fraction * ss);
+  }
+
+  taxBreakdown(ordinary, gains, ss, investmentIncome, status, age, traditionalWithdrawal, spouseAge) {
+    traditionalWithdrawal = traditionalWithdrawal || 0.0;
+    const taxableSs = this.taxableSocialSecurity(ss, ordinary + gains, status);
+    const agi = ordinary + gains + taxableSs;
+    const standard = this.totalStandardDeduction(status, age, spouseAge);
+    const taxableOrdinary = Math.max(0.0, ordinary + taxableSs - standard);
+    const taxableTotal = Math.max(0.0, agi - standard);
+
+    const federalOrdinary = TaxCalculator.bracketTax(taxableOrdinary, this.federalBrackets(status));
+    const ltcg = this.ltcgBrackets(status);
+    const federalLtcg = TaxCalculator.bracketTax(taxableTotal, ltcg) - TaxCalculator.bracketTax(taxableOrdinary, ltcg);
+    const state = this.cfg.state_tax_rate * Math.max(0.0, agi - standard);
+    const niitBase = Math.min(Math.max(agi - this.niitThreshold(status), 0.0), Math.max(investmentIncome, 0.0));
+    const niit = this.cfg.niit_rate * niitBase;
+
+    let penalty = 0.0;
+    if (traditionalWithdrawal > 0 && age < this.cfg.penalty_free_age) {
+      let penaltyFree = this.cfg.use_72t_sepp;
+      if (this.cfg.assume_qualified_plan_age55_exception && age >= 55) penaltyFree = true;
+      if (!penaltyFree) penalty = this.cfg.early_withdrawal_penalty * traditionalWithdrawal;
+    }
+    return {
+      taxable_social_security: taxableSs, agi, federal_ordinary: federalOrdinary,
+      federal_ltcg: federalLtcg, state, niit, early_penalty: penalty,
+      total: federalOrdinary + federalLtcg + state + niit + penalty,
+    };
+  }
+
+  totalTax(ordinary, gains, ss, investmentIncome, status, age, traditionalWithdrawal, spouseAge) {
+    return this.taxBreakdown(ordinary, gains, ss, investmentIncome, status, age,
+                             traditionalWithdrawal, spouseAge).total;
+  }
+}
+
+// ==============================
+// CORE LIFE SIMULATION
+// ==============================
+class RetirementSimulator {
+  constructor(config, sessionSeed) {
+    this.cfg = config;
+    this.tax = new TaxCalculator(config.taxes);
+    this.probabilityResults = {};
+
+    const sim = config.simulation, m = config.market;
+    const crisisDragMonthly = Math.log1p(sim.crisis_regime.annual_return_drag) / 12;
+    let normalBoostMonthly = Math.log1p(sim.normal_regime.return_boost) / 12;
+
+    const pEnter = sim.normal_regime.monthly_crisis_probability;
+    const pExit = sim.crisis_regime.monthly_recovery_probability;
+    this.crisisFraction = (pEnter + pExit) > 0 ? pEnter / (pEnter + pExit) : 0.0;
+
+    if (sim.compensate_crisis_drag && this.crisisFraction < 1.0) {
+      normalBoostMonthly = (normalBoostMonthly - this.crisisFraction * crisisDragMonthly) / (1 - this.crisisFraction);
+    }
+    this.regimes = {
+      normal: { return_boost: normalBoostMonthly, vol_mult: sim.normal_regime.volatility_multiplier, p_switch: pEnter },
+      crisis: { return_boost: crisisDragMonthly, vol_mult: sim.crisis_regime.volatility_multiplier, p_switch: pExit },
+    };
+
+    this.monthlyLogStock = Math.log1p(this.realReturn(m.stock_return)) / 12;
+    this.monthlyLogBond = Math.log1p(this.realReturn(m.bond_return)) / 12;
+    this.monthlyCashRate = RetirementSimulator.monthlyRate(this.realReturn(m.cash_return));
+    this.monthlyStockVol = m.stock_volatility / Math.sqrt(12);
+    this.monthlyBondVol = m.bond_volatility / Math.sqrt(12);
+    this.monthlyLogInflation = Math.log1p(m.inflation) / 12;
+
+    // Resolve the session seed ONCE so common random numbers hold across every
+    // retirement age, even with fresh entropy (-1). A worker is handed the
+    // main thread's resolution so every worker shares it.
+    if (sessionSeed != null) this.sessionSeed = sessionSeed;
+    else this.sessionSeed = sim.random_seed >= 0 ? sim.random_seed : freshEntropySeed();
+  }
+
+  realReturn(nominal) { return (1 + nominal) / (1 + this.cfg.market.inflation) - 1; }
+  static monthlyRate(annual) { return Math.pow(1 + annual, 1 / 12) - 1; }
+
+  // ---------- mortality ----------
+  static actuarialDeathAge(sex, startAge, maxAge, rng) {
+    const [b, q75] = GOMPERTZ_PARAMS[sex];
+    const a = q75 * Math.exp(-b * 75);
+    let age = startAge;
+    while (age < maxAge) {
+      const q = Math.min(0.99, a * Math.exp(b * age));
+      if (rng.random() < q) return Math.min(age + rng.random(), maxAge);
+      age += 1.0;
+    }
+    return maxAge;
+  }
+
+  drawDeathAge(person, personCurrentAge, rng) {
+    if (person.mortality_model === 'ssa_inspired')
+      return RetirementSimulator.actuarialDeathAge(person.mortality_sex, personCurrentAge, person.death_age_max, rng);
+    const d = rng.normal(person.death_age_mean, person.death_age_std);
+    return Math.min(Math.max(d, person.death_age_min), person.death_age_max);
+  }
+
+  // ---------- Social Security ----------
+  static piaFromAime(aime) {
+    if (aime <= SS_PIA_BEND1) return SS_PIA_RATE1 * aime;
+    if (aime <= SS_PIA_BEND2) return SS_PIA_RATE1 * SS_PIA_BEND1 + SS_PIA_RATE2 * (aime - SS_PIA_BEND1);
+    return SS_PIA_RATE1 * SS_PIA_BEND1 + SS_PIA_RATE2 * (SS_PIA_BEND2 - SS_PIA_BEND1) + SS_PIA_RATE3 * (aime - SS_PIA_BEND2);
+  }
+
+  static aimeFromPia(pia) {
+    const knee1 = SS_PIA_RATE1 * SS_PIA_BEND1;
+    const knee2 = knee1 + SS_PIA_RATE2 * (SS_PIA_BEND2 - SS_PIA_BEND1);
+    if (pia <= knee1) return pia / SS_PIA_RATE1;
+    if (pia <= knee2) return SS_PIA_BEND1 + (pia - knee1) / SS_PIA_RATE2;
+    return SS_PIA_BEND2 + (pia - knee2) / SS_PIA_RATE3;
+  }
+
+  static ssBenefitFactor(claimAge, fra) {
+    fra = fra == null ? 67 : fra;
+    claimAge = Math.max(62, Math.min(70, Math.trunc(claimAge)));
+    const monthsDiff = (claimAge - fra) * 12;
+    if (monthsDiff >= 0) return 1.0 + (2 / 3 * 0.01) * monthsDiff;
+    const monthsEarly = -monthsDiff;
+    let reduction;
+    if (monthsEarly <= 36) reduction = (5 / 9 * 0.01) * monthsEarly;
+    else reduction = (5 / 9 * 0.01) * 36 + (5 / 12 * 0.01) * (monthsEarly - 36);
+    return Math.max(0.0, 1 - reduction);
+  }
+
+  static ssSurvivorFactor(claimAge, deathAge, fra) {
+    fra = fra == null ? 67 : fra;
+    if (deathAge >= claimAge)
+      return Math.max(RetirementSimulator.ssBenefitFactor(claimAge, fra), SS_WIDOW_LIMIT_FRACTION);
+    const monthsLate = Math.max(0.0, Math.min(deathAge, 70.0) - fra) * 12;
+    return 1.0 + (2 / 3 * 0.01) * monthsLate;
+  }
+
+  static ssSpousalFactor(claimAge, fra) {
+    fra = fra == null ? 67 : fra;
+    claimAge = Math.max(62, Math.min(70, Math.trunc(claimAge)));
+    const monthsEarly = Math.max(0, (fra - claimAge) * 12);
+    let reduction;
+    if (monthsEarly <= 36) reduction = (25 / 36 * 0.01) * monthsEarly;
+    else reduction = (25 / 36 * 0.01) * 36 + (5 / 12 * 0.01) * (monthsEarly - 36);
+    return Math.max(0.0, 1 - reduction);
+  }
+
+  ssFraBenefit(person, yearsAfterCurrent) {
+    const yearsWorked = person.ss_earnings_years_at_current_age + Math.max(0, yearsAfterCurrent);
+    const credits = Math.min(40, roundHalfEven(person.ss_credits_at_current_age + 4 * Math.max(0, yearsAfterCurrent)));
+    if (credits < this.cfg.life_events.ss_retirement_eligibility_credits) return 0.0;
+    const fullPiaMonthly = Math.max(0.0, person.ss_annual_full_retirement_benefit / 12.0);
+    if (fullPiaMonthly === 0.0) return 0.0;
+    const averagingYears = this.cfg.life_events.ss_benefit_years_required;
+    const yearsRatio = Math.min(1.0, yearsWorked / Math.max(1, averagingYears));
+    const fullAime = RetirementSimulator.aimeFromPia(fullPiaMonthly);
+    return RetirementSimulator.piaFromAime(fullAime * yearsRatio) * 12.0;
+  }
+
+  primarySsIncome(retirementAge, workYearsAfterCurrent) {
+    const le = this.cfg.life_events;
+    if (workYearsAfterCurrent == null) workYearsAfterCurrent = retirementAge - this.cfg.simulation.current_age;
+    return this.ssFraBenefit(le, workYearsAfterCurrent) * RetirementSimulator.ssBenefitFactor(le.ss_claim_age);
+  }
+
+  spouseSsIncome(retirementAge, primaryWorkYears, spouseWorkYears) {
+    const sp = this.cfg.spouse;
+    if (!sp.enabled) return 0.0;
+    const defaultYears = retirementAge - this.cfg.simulation.current_age;
+    if (primaryWorkYears == null) primaryWorkYears = defaultYears;
+    if (spouseWorkYears == null) spouseWorkYears = defaultYears;
+    const own = this.ssFraBenefit(sp, spouseWorkYears) * RetirementSimulator.ssBenefitFactor(sp.ss_claim_age);
+    const primaryPia = this.ssFraBenefit(this.cfg.life_events, primaryWorkYears);
+    const spousal = 0.5 * primaryPia * RetirementSimulator.ssSpousalFactor(sp.ss_claim_age);
+    return Math.max(own, spousal);
+  }
+
+  // ---------- filing status and spending ----------
+  householdFilingStatus(primaryAlive, spouseAlive) {
+    if (primaryAlive && spouseAlive) return this.cfg.taxes.filing_status;
+    if (this.cfg.taxes.filing_status === 'married_filing_jointly' ||
+        this.cfg.taxes.filing_status === 'qualifying_surviving_spouse') return 'single';
+    return this.cfg.taxes.filing_status;
+  }
+
+  spendingSmile(householdAge) {
+    const s = this.cfg.spending;
+    const yearsDeclining = Math.max(0.0, Math.min(householdAge, s.spending_decline_end_age) - s.spending_decline_start_age);
+    const baseFactor = Math.pow(s.annual_spending_decline_rate, yearsDeclining);
+    const yearsPastEnd = Math.max(0.0, householdAge - s.spending_decline_end_age);
+    const healthcareMultiplier = Math.pow(1 + s.annual_healthcare_increase_rate, yearsPastEnd);
+    return [baseFactor, healthcareMultiplier];
+  }
+
+  // ---------- market path ----------
+  marketPath(months, rng) {
+    const m = this.cfg.market;
+    const df = this.cfg.simulation.return_distribution_degrees_of_freedom;
+    const tScale = Math.sqrt((df - 2) / df);
+
+    const zStock = new Float64Array(months), zBond = new Float64Array(months);
+    const regimeRolls = new Float64Array(months), inflationShocks = new Float64Array(months);
+    for (let i = 0; i < months; i++) zStock[i] = rng.standardT(df) * tScale;
+    for (let i = 0; i < months; i++) zBond[i] = rng.standardNormal();
+    for (let i = 0; i < months; i++) regimeRolls[i] = rng.random();
+    const inflSigma = m.inflation_volatility / Math.sqrt(12);
+    for (let i = 0; i < months; i++) inflationShocks[i] = rng.normal(0.0, inflSigma);
+
+    // Two-state Markov chain, started from its stationary distribution.
+    const boosts = new Float64Array(months), volMults = new Float64Array(months);
+    let regime = rng.random() < this.crisisFraction ? 'crisis' : 'normal';
+    for (let i = 0; i < months; i++) {
+      let params = this.regimes[regime];
+      if (regimeRolls[i] < params.p_switch) {
+        regime = regime === 'normal' ? 'crisis' : 'normal';
+        params = this.regimes[regime];
+      }
+      boosts[i] = params.return_boost;
+      volMults[i] = params.vol_mult;
+    }
+
+    const corr = m.stock_bond_correlation;
+    const corrComplement = Math.sqrt(Math.max(0.0, 1 - corr * corr));
+    const stockGrowth = new Float64Array(months), bondGrowth = new Float64Array(months);
+    const cashGrowth = new Float64Array(months), basisDecay = new Float64Array(months);
+    for (let i = 0; i < months; i++) {
+      const stockShock = zStock[i] * this.monthlyStockVol * volMults[i];
+      const bondShock = this.monthlyBondVol * (corr * zStock[i] + corrComplement * zBond[i]);
+      stockGrowth[i] = Math.exp(this.monthlyLogStock + boosts[i] + stockShock) - 1;
+      bondGrowth[i] = Math.exp(this.monthlyLogBond + bondShock - inflationShocks[i]) - 1;
+      cashGrowth[i] = this.monthlyCashRate - inflationShocks[i];
+      basisDecay[i] = Math.exp(-(this.monthlyLogInflation + inflationShocks[i]));
+    }
+    return { stockGrowth, bondGrowth, cashGrowth, basisDecay };
+  }
+
+  // ---------- the annual withdrawal plan ----------
+  investmentIncome(brokerage, cash, stockAlloc, bondAlloc) {
+    const m = this.cfg.market;
+    return [brokerage * stockAlloc * m.stock_dividend_yield,
+            brokerage * bondAlloc * m.bond_taxable_yield,
+            cash * m.cash_return];
+  }
+
+  static ladderWithdraw(gross, avail, basisFraction) {
+    const takeCash = Math.min(avail[0], gross);
+    let remaining = gross - takeCash;
+    const takeBrokerage = Math.min(avail[1], remaining);
+    remaining -= takeBrokerage;
+    const takeTraditional = Math.min(avail[2], remaining);
+    remaining -= takeTraditional;
+    const takeRoth = Math.min(avail[3], remaining);
+    remaining -= takeRoth;
+    return {
+      cash: takeCash, brokerage: takeBrokerage, traditional: takeTraditional, roth: takeRoth,
+      realized_gain: takeBrokerage * Math.max(0.0, 1.0 - basisFraction),
+      basis_returned: takeBrokerage * basisFraction,
+      unfunded: remaining,
+    };
+  }
+
+  annualWithdrawalPlan(netNeed, balances, brokerageBasis, householdAge, status, ssIncome,
+                       stockAlloc, bondAlloc, rmdAmount, spouseAge) {
+    let [cash, brokerage, traditional, roth] = balances;
+    rmdAmount = Math.min(rmdAmount, traditional);
+
+    const [qdiv, bondInterest, cashInterest] = this.investmentIncome(brokerage, cash, stockAlloc, bondAlloc);
+    brokerageBasis = brokerageBasis + qdiv + bondInterest;
+    const basisFraction = brokerage > 0 ? brokerageBasis / brokerage : 0.0;
+
+    const baseOrdinary = bondInterest + cashInterest + rmdAmount;
+    const baseGains = qdiv;
+    const baseInvestmentIncome = qdiv + bondInterest + cashInterest;
+
+    const available = [cash, brokerage, traditional - rmdAmount, roth];
+    const maxExtra = available[0] + available[1] + available[2] + available[3];
+
+    const tax = this.tax;
+    const evaluate = (extra) => {
+      const takes = RetirementSimulator.ladderWithdraw(extra, available, basisFraction);
+      const ordinary = baseOrdinary + takes.traditional;
+      const gains = baseGains + takes.realized_gain;
+      const investment = baseInvestmentIncome + takes.realized_gain;
+      const t = tax.totalTax(ordinary, gains, ssIncome, investment, status, householdAge,
+                             rmdAmount + takes.traditional, spouseAge);
+      return [takes, t, rmdAmount + extra - t];
+    };
+
+    let [takes, taxBill, net] = evaluate(maxExtra);
+    if (net + 1e-9 < netNeed) return null;
+
+    [takes, taxBill, net] = evaluate(0.0);
+    let extra;
+    if (net < netNeed) {
+      let lo = 0.0, hi = maxExtra;
+      for (let k = 0; k < 60; k++) {
+        const mid = 0.5 * (lo + hi);
+        const netMid = evaluate(mid)[2];
+        if (netMid >= netNeed) hi = mid; else lo = mid;
+        if (hi - lo < 0.005) break;
+      }
+      [takes, taxBill, net] = evaluate(hi);
+      extra = hi;
+    } else {
+      extra = 0.0;
+    }
+
+    cash -= takes.cash;
+    brokerage -= takes.brokerage;
+    traditional -= rmdAmount + takes.traditional;
+    roth -= takes.roth;
+    brokerageBasis -= takes.basis_returned;
+
+    const surplus = net - netNeed;
+    if (surplus > 0) { brokerage += surplus; brokerageBasis += surplus; }
+    brokerageBasis = Math.max(0.0, brokerageBasis);
+
+    return {
+      balances: [cash, brokerage, traditional, roth],
+      new_basis: brokerageBasis,
+      gross_total: rmdAmount + extra,
+      tax: taxBill,
+      rmd: rmdAmount,
+      surplus_reinvested: Math.max(0.0, surplus),
+      take_cash: takes.cash, take_brokerage: takes.brokerage,
+      take_traditional: rmdAmount + takes.traditional, take_roth: takes.roth,
+      realized_gain: takes.realized_gain,
+    };
+  }
+
+  rmdDivisor(age) {
+    if (age < this.cfg.simulation.rmd_start_age) return null;
+    const key = Math.min(Math.trunc(age), 120);
+    return key in RMD_TABLE ? RMD_TABLE[key] : RMD_TABLE[120];
+  }
+
+  // ---------- the model ----------
+  /** Simulate ONE random lifetime. Returns {survived, minPortfolio, iwr, final, trajectory}. */
+  simulateLife(retirementAge, randomSeed, recordTrajectory) {
+    const cfg = this.cfg, sp = cfg.spouse, hc = cfg.healthcare;
+    const currentAge = cfg.simulation.current_age;
+    const rng = new Rng(randomSeed);
+
+    const deathAge = this.drawDeathAge(cfg.life_events, currentAge, rng);
+    let spouseDeathOwn, spouseDeathPrimaryClock, lastAge;
+    if (sp.enabled) {
+      spouseDeathOwn = this.drawDeathAge(sp, currentAge + sp.age_offset, rng);
+      spouseDeathPrimaryClock = spouseDeathOwn - sp.age_offset;
+      lastAge = Math.max(deathAge, spouseDeathPrimaryClock);
+    } else {
+      spouseDeathOwn = -Infinity;
+      spouseDeathPrimaryClock = -Infinity;
+      lastAge = deathAge;
+    }
+
+    const livingMonths = Math.max(roundHalfEven((lastAge - currentAge) * 12), 1);
+    const retirementMonth = (retirementAge - currentAge) * 12;
+    const trajectorySlots = Math.max(0, Math.ceil((livingMonths - retirementMonth) / 12));
+
+    const path = this.marketPath(livingMonths, rng);
+    const stockG = path.stockGrowth, bondG = path.bondGrowth, cashG = path.cashGrowth, basisDecay = path.basisDecay;
+
+    let roth = Number(cfg.accounts.roth);
+    let traditional = Number(cfg.accounts.traditional);
+    let brokerage = Number(cfg.accounts.brokerage);
+    let brokerageBasis = Math.min(Number(cfg.accounts.brokerage_cost_basis), brokerage);
+    let cash = Number(cfg.accounts.cash);
+    let spendingCash = 0.0;
+
+    const baseContribs = [cfg.contributions.annual_roth / 12, cfg.contributions.annual_traditional / 12,
+                          cfg.contributions.annual_brokerage / 12, cfg.contributions.annual_cash / 12];
+    const contribGrowthRate = cfg.contributions.annual_contribution_growth_rate;
+
+    const primaryWorkYears = Math.max(0.0, Math.min(retirementAge, deathAge) - currentAge);
+    const spouseWorkYears = sp.enabled ? Math.max(0.0, Math.min(retirementAge, spouseDeathPrimaryClock) - currentAge) : 0.0;
+    const primarySsAnnual = this.primarySsIncome(retirementAge, primaryWorkYears);
+    const spouseSsAnnual = this.spouseSsIncome(retirementAge, primaryWorkYears, spouseWorkYears);
+
+    const primarySurvivorAnnual = this.ssFraBenefit(cfg.life_events, primaryWorkYears)
+      * RetirementSimulator.ssSurvivorFactor(cfg.life_events.ss_claim_age, deathAge);
+    const spouseSurvivorAnnual = sp.enabled
+      ? this.ssFraBenefit(sp, spouseWorkYears) * RetirementSimulator.ssSurvivorFactor(sp.ss_claim_age, spouseDeathOwn)
+      : 0.0;
+
+    const glideYears = Math.max(cfg.simulation.glide_path_years, 1);
+    const glide = cfg.simulation.glide_path;
+    const glideStart = cfg.simulation.glide_path_start_stock_pct;
+    const glideEnd = cfg.simulation.glide_path_end_stock_pct;
+    const staticStock = cfg.simulation.static_stock_allocation;
+    const spend = cfg.spending;
+
+    let retired = false;
+    let retirementStartMonth = null;
+    let retirementPortfolio = null;
+    let initialWithdrawalRate = null;
+    let spendingMultiplier = 1.0;
+    let yearStartInvestable = null;
+    let monthlyDraw = 0.0;
+    let minPortfolio = Infinity;
+    const trajectory = recordTrajectory ? [] : null;
+
+    const broke = () => {
+      if (trajectory !== null) while (trajectory.length < trajectorySlots) trajectory.push(0.0);
+      return { survived: false, minPortfolio: Math.min(minPortfolio, 0.0),
+               iwr: initialWithdrawalRate, final: 0.0, trajectory };
+    };
+
+    for (let month = 0; month < livingMonths; month++) {
+      const age = currentAge + month / 12;
+      const primaryAlive = age < deathAge;
+      const spouseAlive = sp.enabled && age < spouseDeathPrimaryClock;
+      if (!primaryAlive && !spouseAlive) break;
+
+      const householdAge = primaryAlive ? age : age + sp.age_offset;
+      const isRetired = (month >= retirementMonth) || (sp.enabled && !primaryAlive);
+
+      let stockAlloc;
+      if (glide) {
+        const frac = Math.min(1.0, Math.max(0.0, age - retirementAge) / glideYears);
+        stockAlloc = glideStart + (glideEnd - glideStart) * frac;
+      } else {
+        stockAlloc = staticStock;
+      }
+      const bondAlloc = 1 - stockAlloc;
+
+      const growthFactor = Math.max(1e-10, 1 + stockAlloc * stockG[month] + bondAlloc * bondG[month]);
+      roth *= growthFactor;
+      traditional *= growthFactor;
+      brokerage *= growthFactor;
+      cash *= (1 + cashG[month]);
+      brokerageBasis *= basisDecay[month];
+
+      if (!isRetired) {
+        const growth = Math.pow(1 + contribGrowthRate, month / 12);
+        roth += baseContribs[0] * growth;
+        traditional += baseContribs[1] * growth;
+        brokerage += baseContribs[2] * growth;
+        brokerageBasis += baseContribs[2] * growth;
+        cash += baseContribs[3] * growth;
+      } else {
+        if (!retired) {
+          retired = true;
+          retirementStartMonth = month;
+          retirementPortfolio = roth + traditional + brokerage + cash;
+        }
+
+        if ((month - retirementStartMonth) % 12 === 0) {
+          const investable = roth + traditional + brokerage + cash;
+
+          if (month !== retirementStartMonth && yearStartInvestable) {
+            const impliedReturn = investable / yearStartInvestable - 1;
+            if (impliedReturn < spend.guardrail_cut_return_threshold) {
+              spendingMultiplier = Math.max(spendingMultiplier * spend.guardrail_cut_amount, spend.guardrail_cut_floor);
+            } else if (impliedReturn > spend.guardrail_raise_return_threshold) {
+              spendingMultiplier = Math.min(spendingMultiplier * spend.guardrail_raise_amount, spend.guardrail_raise_ceiling);
+            }
+          }
+
+          const [baseFactor, healthMultiplier] = this.spendingSmile(householdAge);
+          const survivors = (primaryAlive ? 1 : 0) + (spouseAlive ? 1 : 0);
+          const householdFactor = (sp.enabled && survivors === 1) ? sp.survivor_spending_factor : 1.0;
+          const spouseAge = spouseAlive ? age + sp.age_offset : null;
+
+          let annualHealth = 0.0;
+          if (primaryAlive) annualHealth += age < hc.medicare_age ? hc.pre_medicare_annual_premium : hc.medicare_annual_premium;
+          if (spouseAlive) annualHealth += spouseAge < hc.medicare_age ? hc.pre_medicare_annual_premium : hc.medicare_annual_premium;
+          annualHealth *= healthMultiplier;
+
+          const annualSpending = spend.initial_annual_expenses * baseFactor * spendingMultiplier * householdFactor + annualHealth;
+
+          let ssTotal = 0.0;
+          for (let mo = 0; mo < 12; mo++) {
+            const testAge = age + mo / 12;
+            const pAlive = primaryAlive && testAge < deathAge;
+            const sAlive = spouseAlive && testAge < spouseDeathPrimaryClock;
+            const pClaiming = pAlive && testAge >= cfg.life_events.ss_claim_age;
+            const sClaiming = sAlive && (testAge + sp.age_offset) >= sp.ss_claim_age;
+            if (pAlive && sAlive) {
+              ssTotal += pClaiming ? primarySsAnnual / 12 : 0.0;
+              ssTotal += sClaiming ? spouseSsAnnual / 12 : 0.0;
+            } else if (pAlive && pClaiming) {
+              ssTotal += Math.max(primarySsAnnual, spouseSurvivorAnnual) / 12;
+            } else if (sAlive && sClaiming) {
+              ssTotal += Math.max(spouseSsAnnual, primarySurvivorAnnual) / 12;
+            }
+          }
+
+          const netNeed = Math.max(annualSpending - ssTotal, 0.0);
+
+          const divisor = this.rmdDivisor(householdAge);
+          const rmdAmount = divisor ? Math.min(traditional, traditional / divisor) : 0.0;
+
+          const status = this.householdFilingStatus(primaryAlive, spouseAlive);
+          const plan = this.annualWithdrawalPlan(
+            netNeed, [cash, brokerage, traditional, roth], brokerageBasis,
+            householdAge, status, ssTotal, stockAlloc, bondAlloc, rmdAmount,
+            primaryAlive ? spouseAge : null);
+
+          if (plan === null) return broke();
+
+          [cash, brokerage, traditional, roth] = plan.balances;
+          brokerageBasis = plan.new_basis;
+          spendingCash += netNeed;
+          monthlyDraw = netNeed / 12.0;
+          yearStartInvestable = roth + traditional + brokerage + cash;
+
+          if (initialWithdrawalRate === null && retirementPortfolio) {
+            initialWithdrawalRate = plan.gross_total / retirementPortfolio;
+          }
+        }
+
+        if (spendingCash + 1e-6 < monthlyDraw) return broke();
+        spendingCash -= monthlyDraw;
+      }
+
+      const total = roth + traditional + brokerage + cash + spendingCash;
+
+      if (trajectory !== null && month >= retirementMonth && (month - retirementMonth) % 12 === 0) {
+        trajectory.push(total);
+      }
+      if (month >= retirementMonth) minPortfolio = Math.min(minPortfolio, total);
+      if (retired && total < 0) return broke();
+    }
+
+    const finalTotal = roth + traditional + brokerage + cash + spendingCash;
+    if (minPortfolio === Infinity) minPortfolio = finalTotal;
+    return { survived: true, minPortfolio, iwr: initialWithdrawalRate, final: finalTotal, trajectory };
+  }
+
+  // ==============================
+  // MONTE CARLO
+  // ==============================
+  runSeeds(retirementAge, n) {
+    const seeds = new Array(n);
+    if (this.cfg.simulation.common_random_numbers) {
+      for (let i = 0; i < n; i++) seeds[i] = this.sessionSeed + i * 104729;
+    } else {
+      for (let i = 0; i < n; i++) seeds[i] = this.sessionSeed + retirementAge * 1000003 + i * 104729;
+    }
+    return seeds;
+  }
+
+  /** Aggregate a full set of simulateLife results for one age into the
+   *  [success, median_min, median_iwr, median_final] tuple. Every dollar
+   *  figure is a MEDIAN, never a mean. */
+  static summarize(results, runs) {
+    let successes = 0;
+    const mins = new Float64Array(results.length), finals = new Float64Array(results.length);
+    const iwrs = [];
+    for (let i = 0; i < results.length; i++) {
+      const r = results[i];
+      if (r.survived) successes++;
+      mins[i] = r.minPortfolio; finals[i] = r.final;
+      if (r.iwr !== null && r.iwr !== undefined) iwrs.push(r.iwr);
+    }
+    return [successes / runs, median(mins), iwrs.length ? median(iwrs) : 0.0, median(finals)];
+  }
+
+  /** Serial version of the sweep (the page normally parallelises this). */
+  retirementProbability(retirementAge) {
+    const runs = this.cfg.simulation.monte_carlo_runs;
+    const seeds = this.runSeeds(retirementAge, runs);
+    const results = seeds.map(s => this.simulateLife(retirementAge, s, false));
+    return RetirementSimulator.summarize(results, runs);
+  }
+
+  computeProbabilityCurve(progress) {
+    const ages = this.sweepAges();
+    ages.forEach((age, i) => {
+      if (progress) progress(i, ages.length, age);
+      this.probabilityResults[age] = this.retirementProbability(age);
+    });
+  }
+
+  sweepAges() {
+    const out = [];
+    for (let a = this.cfg.simulation.min_retirement_age; a <= this.cfg.simulation.max_retirement_age; a++) out.push(a);
+    return out;
+  }
+
+  trajectoryColumns(retirementAge) {
+    const horizon = Math.max(this.cfg.life_events.death_age_max,
+                             this.cfg.spouse.enabled ? this.cfg.spouse.death_age_max - this.cfg.spouse.age_offset : 0);
+    return Math.max(Math.trunc(horizon - retirementAge), 0);
+  }
+
+  /** Percentiles per year of retirement from a list of trajectories. */
+  trajectoryPercentiles(retirementAge, trajectories) {
+    const nCols = this.trajectoryColumns(retirementAge);
+    const columns = [];
+    for (let c = 0; c < nCols; c++) columns.push([]);
+    for (const traj of trajectories) {
+      const n = Math.min(traj.length, nCols);
+      for (let c = 0; c < n; c++) columns[c].push(traj[c]);
+    }
+    const ages = [], counts = [];
+    const pct = { 1: [], 10: [], 25: [], 50: [] };
+    for (let c = 0; c < nCols; c++) {
+      ages.push(retirementAge + c);
+      counts.push(columns[c].length);
+      const sorted = Float64Array.from(columns[c]).sort();
+      for (const p of [1, 10, 25, 50]) pct[p].push(sorted.length ? percentileSorted(sorted, p) : NaN);
+    }
+    pct.n = counts;
+    return { ages, percentiles: pct };
+  }
+
+  computeTrajectoryPercentiles(retirementAge, nSamples) {
+    nSamples = nSamples || TRAJECTORY_SAMPLES;
+    const seeds = this.runSeeds(retirementAge, nSamples);
+    const trajs = seeds.map(s => this.simulateLife(retirementAge, s, true).trajectory);
+    return this.trajectoryPercentiles(retirementAge, trajs);
+  }
+
+  // ==============================
+  // RESULTS
+  // ==============================
+  findRetirementAge() {
+    const ages = Object.keys(this.probabilityResults).map(Number).sort((a, b) => a - b);
+    for (const age of ages) {
+      const prob = this.probabilityResults[age][0];
+      if (prob >= this.cfg.simulation.target_success_probability)
+        return { retirement_age: age, success_probability: prob };
+    }
+    return null;
+  }
+
+  formatResultsTable() {
+    const target = this.cfg.simulation.target_success_probability;
+    const result = this.findRetirementAge();
+    const lines = [];
+    if (result) {
+      lines.push(`  Earliest retirement age meeting ${fmtPct(target, 0)} target: AGE ${result.retirement_age}  (${fmtPct(result.success_probability, 1)} success)`);
+    } else {
+      lines.push(`  No retirement age met the ${fmtPct(target, 0)} success target in the range tested.`);
+    }
+    lines.push('');
+    lines.push('  Age   Success   Median Min In Ret   Median Initial W/D   Median Final Bal');
+    lines.push('  ' + '-'.repeat(80));
+    const ages = Object.keys(this.probabilityResults).map(Number).sort((a, b) => a - b);
+    for (const age of ages) {
+      const [prob, medMin, medWr, medFinal] = this.probabilityResults[age];
+      lines.push(`  ${pad(String(age), 4)}   ${pad(fmtPct(prob, 1), 6)}   $${pad(fmtMoney(medMin), 15)}   ${pad(fmtPct(medWr, 2), 17)}   $${pad(fmtMoney(medFinal), 15)}`);
+    }
+    return lines.join('\n');
+  }
+
+  assumptionReport() {
+    const cfg = this.cfg, m = cfg.market, sim = cfg.simulation, le = cfg.life_events;
+    const f = this.crisisFraction;
+    const realStock = this.realReturn(m.stock_return);
+    const effLog = (this.regimes.normal.return_boost * (1 - f) + this.regimes.crisis.return_boost * f) * 12 + Math.log1p(realStock);
+    const within = (1 - f) * m.stock_volatility ** 2 + f * (m.stock_volatility * sim.crisis_regime.volatility_multiplier) ** 2;
+    const between = f * (1 - f) * (this.regimes.normal.return_boost - this.regimes.crisis.return_boost) ** 2 * 12;
+    const effVol = Math.sqrt(within + between);
+    const pEnter = sim.normal_regime.monthly_crisis_probability;
+    const pExit = sim.crisis_regime.monthly_recovery_probability;
+
+    const out = [
+      '  EFFECTIVE ASSUMPTIONS (what the simulation actually uses)',
+      '  ' + '-'.repeat(68),
+      `  stock return   ${pad(fmtPct(m.stock_return, 2), 7)} nominal -> ${pad(fmtPct(realStock, 3), 7)} real -> ${pad(fmtPct(Math.expm1(effLog), 3), 7)} after regimes`,
+      `  drag compensation ${sim.compensate_crisis_drag ? 'ON -- configured return is delivered' : 'OFF -- crises reduce the return below what you set'}`,
+      `  stock volatility ${pad(fmtPct(m.stock_volatility, 1), 6)} configured -> ${pad(fmtPct(effVol, 1), 6)} effective (crises add variance)`,
+      (f === 0 ? '  crisis regime  disabled (no crises are generated)'
+               : `  crisis regime  every ${pad((1 / pEnter / 12).toFixed(1), 4)} yrs, lasting ${pad(pExit > 0 ? (1 / pExit).toFixed(1) : 'inf', 4)} months, ${pad(fmtPct(f, 1), 5)} of all months`),
+      `  bond return    ${pad(fmtPct(m.bond_return, 2), 7)} nominal -> ${pad(fmtPct(this.realReturn(m.bond_return), 3), 7)} real`,
+      `  cash return    ${pad(fmtPct(m.cash_return, 2), 7)} nominal -> ${pad(fmtPct(this.realReturn(m.cash_return), 3), 7)} real`,
+      `  inflation      ${pad(fmtPct(m.inflation, 2), 7)} mean, ${pad(fmtPct(m.inflation_volatility, 2), 5)} volatility`,
+      `  stock/bond correlation ${pad((m.stock_bond_correlation >= 0 ? '+' : '') + m.stock_bond_correlation.toFixed(2), 6)} (exact in both regimes)`,
+      `  taxable-account income taxed yearly: ${fmtPct(m.stock_dividend_yield, 2)} dividends (LTCG rates), ${fmtPct(m.bond_taxable_yield, 2)} bond interest (ordinary)`,
+      `  filing status  ${cfg.taxes.filing_status}` + (cfg.spouse.enabled ? ' -> single after the first death' : ''),
+      `  mortality      ${le.mortality_model} (${le.mortality_sex}), capped at ${le.death_age_max}`,
+      `  RMDs           from age ${sim.rmd_start_age} on the prior year-end balance`,
+    ];
+
+    for (const age of [sim.min_retirement_age, sim.max_retirement_age]) {
+      const yearsAfter = age - sim.current_age;
+      const worked = le.ss_earnings_years_at_current_age + yearsAfter;
+      const credits = Math.min(40, le.ss_credits_at_current_age + 4 * yearsAfter);
+      const note = credits >= le.ss_retirement_eligibility_credits
+        ? `(${Math.min(worked, le.ss_benefit_years_required)} covered years of ${le.ss_benefit_years_required}, PIA formula)`
+        : `(NOT ELIGIBLE -- only ${credits} of ${le.ss_retirement_eligibility_credits} credits)`;
+      out.push(`  Social Security if you retire at ${age}: $${pad(fmtMoney(this.primarySsIncome(age)), 8)}/yr ${note}`);
+    }
+
+    const hc = cfg.healthcare;
+    out.push(`  healthcare     $${fmtMoney(hc.pre_medicare_annual_premium)}/yr per person before ${hc.medicare_age}, $${fmtMoney(hc.medicare_annual_premium)}/yr after (ON TOP of expenses)`);
+    let pen;
+    if (cfg.taxes.use_72t_sepp) pen = 'disabled (72(t)/Roth ladder assumed)';
+    else if (cfg.taxes.assume_qualified_plan_age55_exception)
+      pen = `${fmtPct(cfg.taxes.early_withdrawal_penalty, 0)} before age 55 (rule-of-55 assumed for employer-plan money)`;
+    else pen = `${fmtPct(cfg.taxes.early_withdrawal_penalty, 0)} before age ${cfg.taxes.penalty_free_age}`;
+    out.push(`  early withdrawal penalty: ${pen}`);
+    out.push(`  spouse         ${cfg.spouse.enabled ? 'enabled' : 'not modelled (single person)'}`);
+    out.push(`  randomness     seed ${sim.random_seed}${sim.random_seed < 0 ? ` (fresh entropy: ${this.sessionSeed})` : ''}, common random numbers ${sim.common_random_numbers ? 'ON -- ages share scenarios' : 'OFF'}`);
+    return out.join('\n');
+  }
+}
+
+function freshEntropySeed() {
+  const g = (typeof globalThis !== 'undefined') ? globalThis : self;
+  if (g.crypto && g.crypto.getRandomValues) {
+    const a = new Uint32Array(1); g.crypto.getRandomValues(a); return a[0];
+  }
+  return Math.floor(Math.random() * 4294967296);
+}
+
+// ==============================
+// FORMATTING HELPERS
+// ==============================
+function pad(s, width) { s = String(s); return s.length >= width ? s : ' '.repeat(width - s.length) + s; }
+function fmtPct(x, digits) { return (x * 100).toFixed(digits) + '%'; }
+function fmtMoney(x) {
+  const r = Math.round(x);
+  const sign = r < 0 ? '-' : '';
+  return sign + String(Math.abs(r)).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
+// ==============================
+// YAML (subset) READER / WRITER -- keeps settings files interchangeable with the
+// desktop app's simulation_params.yaml.
+// ==============================
+function parseYaml(text) {
+  const lines = [];
+  for (const rawLine of text.split(/\r?\n/)) {
+    let line = rawLine.replace(/\t/g, '  ');
+    // strip comments: a '#' at line start or preceded by whitespace, outside quotes
+    let inQuote = null, cut = -1;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (inQuote) { if (ch === inQuote) inQuote = null; continue; }
+      if (ch === '"' || ch === "'") { inQuote = ch; continue; }
+      if (ch === '#' && (i === 0 || /\s/.test(line[i - 1]))) { cut = i; break; }
+    }
+    if (cut >= 0) line = line.slice(0, cut);
+    if (line.trim() === '') continue;
+    if (line.trim() === '---') continue;
+    const indent = line.match(/^ */)[0].length;
+    lines.push({ indent, text: line.trim() });
+  }
+  if (lines.length === 0) return null;
+  const [value] = parseBlock(lines, 0, lines[0].indent);
+  return value;
+
+  function parseBlock(lines, i, indent) {
+    if (i >= lines.length) return [null, i];
+    if (/^-( |$)/.test(lines[i].text)) return parseSeq(lines, i, indent);
+    return parseMap(lines, i, indent);
+  }
+
+  function parseMap(lines, i, indent) {
+    const out = {};
+    while (i < lines.length && lines[i].indent === indent && !/^-( |$)/.test(lines[i].text)) {
+      const mm = lines[i].text.match(/^("[^"]*"|'[^']*'|[^:]+?)\s*:(?:\s+(.*)|$)/);
+      if (!mm) throw new Error(`YAML line ${i + 1}: cannot parse "${lines[i].text}"`);
+      const key = unquote(mm[1]);
+      const rest = (mm[2] || '').trim();
+      if (rest === '') {
+        const next = lines[i + 1];
+        if (next && (next.indent > indent || (next.indent === indent && /^-( |$)/.test(next.text)))) {
+          const [v, ni] = parseBlock(lines, i + 1, next.indent);
+          out[key] = v; i = ni;
+        } else { out[key] = null; i++; }
+      } else {
+        out[key] = parseScalarOrFlow(rest); i++;
+      }
+    }
+    if (i < lines.length && lines[i].indent > indent) throw new Error(`YAML line ${i + 1}: unexpected indentation`);
+    return [out, i];
+  }
+
+  function parseSeq(lines, i, indent) {
+    const out = [];
+    while (i < lines.length && lines[i].indent === indent && /^-( |$)/.test(lines[i].text)) {
+      const rest = lines[i].text.replace(/^-\s?/, '').trim();
+      if (rest === '') {
+        const next = lines[i + 1];
+        if (next && next.indent > indent) { const [v, ni] = parseBlock(lines, i + 1, next.indent); out.push(v); i = ni; }
+        else { out.push(null); i++; }
+      } else if (/^-( |$)/.test(rest) || /^[^\[\]{}"']*?:(\s|$)/.test(rest)) {
+        // nested sequence ("- - 1") or mapping ("- key: v") on the dash line:
+        // re-read the remainder as its own block indented past the dash.
+        lines[i] = { indent: indent + 2, text: rest };
+        const [v, ni] = parseBlock(lines, i, indent + 2);
+        out.push(v); i = ni;
+      } else {
+        out.push(parseScalarOrFlow(rest)); i++;
+      }
+    }
+    return [out, i];
+  }
+
+  function parseScalarOrFlow(s) {
+    if (s.startsWith('[')) return parseFlowSeq(s);
+    if (s.startsWith('{')) return parseFlowMap(s);
+    return parseScalar(s);
+  }
+
+  function splitTopLevel(inner) {
+    const parts = []; let depth = 0, cur = '', inQuote = null;
+    for (const ch of inner) {
+      if (inQuote) { cur += ch; if (ch === inQuote) inQuote = null; continue; }
+      if (ch === '"' || ch === "'") { inQuote = ch; cur += ch; continue; }
+      if (ch === '[' || ch === '{') depth++;
+      if (ch === ']' || ch === '}') depth--;
+      if (ch === ',' && depth === 0) { parts.push(cur); cur = ''; continue; }
+      cur += ch;
+    }
+    if (cur.trim() !== '') parts.push(cur);
+    return parts.map(p => p.trim()).filter(p => p !== '');
+  }
+
+  function parseFlowSeq(s) {
+    if (!s.endsWith(']')) throw new Error(`YAML: unterminated list "${s}"`);
+    return splitTopLevel(s.slice(1, -1)).map(parseScalarOrFlow);
+  }
+
+  function parseFlowMap(s) {
+    if (!s.endsWith('}')) throw new Error(`YAML: unterminated mapping "${s}"`);
+    const out = {};
+    for (const part of splitTopLevel(s.slice(1, -1))) {
+      const k = part.indexOf(':');
+      if (k < 0) throw new Error(`YAML: bad flow mapping entry "${part}"`);
+      out[unquote(part.slice(0, k).trim())] = parseScalarOrFlow(part.slice(k + 1).trim());
+    }
+    return out;
+  }
+
+  function unquote(s) {
+    if ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'"))) return s.slice(1, -1);
+    return s;
+  }
+
+  function parseScalar(s) {
+    if (s === '' || s === '~' || s === 'null' || s === 'Null' || s === 'NULL') return null;
+    if (s === 'true' || s === 'True' || s === 'TRUE' || s === 'yes' || s === 'Yes' || s === 'on' || s === 'On') return true;
+    if (s === 'false' || s === 'False' || s === 'FALSE' || s === 'no' || s === 'No' || s === 'off' || s === 'Off') return false;
+    if (/^[-+]?\.inf$/i.test(s)) return s.startsWith('-') ? -Infinity : Infinity;
+    if (/^\.nan$/i.test(s)) return NaN;
+    if (/^[-+]?(0|[1-9][0-9]*)$/.test(s)) return parseInt(s, 10);
+    if (/^[-+]?(\d+\.?\d*|\.\d+)([eE][-+]?\d+)?$/.test(s)) return Number(s);
+    if (/^0x[0-9a-fA-F]+$/.test(s)) return parseInt(s, 16);
+    return unquote(s);
+  }
+}
+
+function dumpYaml(value) {
+  const out = [];
+  emit(value, 0);
+  return out.join('\n') + '\n';
+
+  function scalar(v) {
+    if (v === null || v === undefined) return 'null';
+    if (typeof v === 'boolean') return v ? 'true' : 'false';
+    if (typeof v === 'number') {
+      if (!Number.isFinite(v)) return v > 0 ? '.inf' : v < 0 ? '-.inf' : '.nan';
+      return String(v);
+    }
+    const s = String(v);
+    if (s === '' || /^[\s\-?:,\[\]{}#&*!|>'"%@`]/.test(s) || /[:#]\s|\s$/.test(s)
+        || ['null', 'true', 'false', 'yes', 'no', 'on', 'off', '~'].includes(s.toLowerCase())
+        || /^[-+]?(\d|\.)/.test(s)) return JSON.stringify(s);
+    return s;
+  }
+  function isScalar(v) { return v === null || typeof v !== 'object'; }
+  function flow(v) {
+    if (Array.isArray(v)) return '[' + v.map(flow).join(', ') + ']';
+    return scalar(v);
+  }
+  function emit(v, indent) {
+    const sp = ' '.repeat(indent);
+    if (Array.isArray(v)) {
+      if (v.length === 0) { out[out.length - 1] += ' []'; return; }
+      for (const item of v) {
+        if (isScalar(item) || Array.isArray(item)) out.push(`${sp}- ${flow(item)}`);
+        else { out.push(`${sp}-`); emit(item, indent + 2); }
+      }
+      return;
+    }
+    const keys = Object.keys(v);
+    if (keys.length === 0) { out[out.length - 1] += ' {}'; return; }
+    for (const k of keys) {
+      const item = v[k];
+      if (isScalar(item)) out.push(`${sp}${scalar(k)}: ${scalar(item)}`);
+      else if (Array.isArray(item) && item.every(x => isScalar(x) || Array.isArray(x)) && item.length > 0) {
+        out.push(`${sp}${scalar(k)}:`);
+        for (const x of item) out.push(`${sp}- ${flow(x)}`);
+      } else { out.push(`${sp}${scalar(k)}:`); emit(item, indent + 2); }
+    }
+  }
+}
+
+/** Parse a settings file that may be YAML or JSON into a validated Config. */
+function loadConfigText(text) {
+  let raw;
+  const trimmed = text.trim();
+  if (trimmed.startsWith('{')) raw = JSON.parse(trimmed);
+  else raw = parseYaml(text);
+  const config = configFromDict(raw);
+  validateConfig(config);
+  return config;
+}
+
+function saveConfigText(config) {
+  validateConfig(config);
+  return dumpYaml(config);
+}
+
+return {
+  TRAJECTORY_SAMPLES, MIN_TRAJECTORY_SAMPLES, RMD_TABLE, SCHEMA,
+  VALID_FILING_STATUSES, VALID_MORTALITY_MODELS, VALID_MORTALITY_SEXES,
+  Rng, ValidationError, TaxCalculator, RetirementSimulator,
+  configFromDict, validateConfig, getField, setField, deepClone,
+  parseYaml, dumpYaml, loadConfigText, saveConfigText,
+  median, percentileSorted, roundHalfEven, fmtPct, fmtMoney, pad,
+};
+})();
+
+if (typeof module !== 'undefined' && module.exports) module.exports = RS;
+
+</script>
+
+<script>
+/* ======================= DEFAULT SETTINGS ======================= */
+const DEFAULT_CONFIG = {
+ "accounts": {
+  "roth": 150000,
+  "traditional": 300000,
+  "brokerage": 5000,
+  "cash": 100000,
+  "brokerage_cost_basis": 3000
+ },
+ "contributions": {
+  "annual_roth": 15000,
+  "annual_traditional": 33750,
+  "annual_brokerage": 10000,
+  "annual_cash": 0,
+  "annual_contribution_growth_rate": 0
+ },
+ "life_events": {
+  "mortality_model": "ssa_inspired",
+  "mortality_sex": "male",
+  "death_age_mean": 93,
+  "death_age_std": 8,
+  "death_age_min": 70,
+  "death_age_max": 110,
+  "ss_claim_age": 67,
+  "ss_annual_full_retirement_benefit": 40000,
+  "ss_earnings_years_at_current_age": 15,
+  "ss_credits_at_current_age": 40,
+  "ss_benefit_years_required": 35,
+  "ss_retirement_eligibility_credits": 40
+ },
+ "spouse": {
+  "enabled": false,
+  "age_offset": -2,
+  "mortality_model": "ssa_inspired",
+  "mortality_sex": "female",
+  "death_age_mean": 95,
+  "death_age_std": 8,
+  "death_age_min": 70,
+  "death_age_max": 110,
+  "ss_claim_age": 67,
+  "ss_annual_full_retirement_benefit": 0,
+  "ss_earnings_years_at_current_age": 0,
+  "ss_credits_at_current_age": 0,
+  "survivor_spending_factor": 0.75
+ },
+ "market": {
+  "stock_return": 0.08,
+  "bond_return": 0.045,
+  "stock_volatility": 0.15,
+  "bond_volatility": 0.05,
+  "inflation": 0.03,
+  "inflation_volatility": 0.015,
+  "cash_return": 0.04,
+  "stock_dividend_yield": 0.015,
+  "bond_taxable_yield": 0.045,
+  "stock_bond_correlation": -0.1
+ },
+ "taxes": {
+  "filing_status": "married_filing_jointly",
+  "standard_deductions": {
+   "single": 16100,
+   "married_filing_jointly": 32200,
+   "qualifying_surviving_spouse": 32200,
+   "head_of_household": 24150
+  },
+  "additional_standard_deductions_65plus": {
+   "single": 2050,
+   "married_filing_jointly": 1650,
+   "qualifying_surviving_spouse": 1650,
+   "head_of_household": 2050
+  },
+  "federal_brackets": {
+   "single": [
+    [
+     12400,
+     0.1
+    ],
+    [
+     50400,
+     0.12
+    ],
+    [
+     105700,
+     0.22
+    ],
+    [
+     201775,
+     0.24
+    ],
+    [
+     256225,
+     0.32
+    ],
+    [
+     640600,
+     0.35
+    ],
+    [
+     null,
+     0.37
+    ]
+   ],
+   "married_filing_jointly": [
+    [
+     24800,
+     0.1
+    ],
+    [
+     100800,
+     0.12
+    ],
+    [
+     211400,
+     0.22
+    ],
+    [
+     403550,
+     0.24
+    ],
+    [
+     512450,
+     0.32
+    ],
+    [
+     768700,
+     0.35
+    ],
+    [
+     null,
+     0.37
+    ]
+   ],
+   "qualifying_surviving_spouse": [
+    [
+     24800,
+     0.1
+    ],
+    [
+     100800,
+     0.12
+    ],
+    [
+     211400,
+     0.22
+    ],
+    [
+     403550,
+     0.24
+    ],
+    [
+     512450,
+     0.32
+    ],
+    [
+     768700,
+     0.35
+    ],
+    [
+     null,
+     0.37
+    ]
+   ],
+   "head_of_household": [
+    [
+     17700,
+     0.1
+    ],
+    [
+     67450,
+     0.12
+    ],
+    [
+     105700,
+     0.22
+    ],
+    [
+     201750,
+     0.24
+    ],
+    [
+     256200,
+     0.32
+    ],
+    [
+     640600,
+     0.35
+    ],
+    [
+     null,
+     0.37
+    ]
+   ]
+  },
+  "ltcg_brackets": {
+   "single": [
+    [
+     49450,
+     0
+    ],
+    [
+     545500,
+     0.15
+    ],
+    [
+     null,
+     0.2
+    ]
+   ],
+   "married_filing_jointly": [
+    [
+     98900,
+     0
+    ],
+    [
+     613700,
+     0.15
+    ],
+    [
+     null,
+     0.2
+    ]
+   ],
+   "qualifying_surviving_spouse": [
+    [
+     98900,
+     0
+    ],
+    [
+     613700,
+     0.15
+    ],
+    [
+     null,
+     0.2
+    ]
+   ],
+   "head_of_household": [
+    [
+     66200,
+     0
+    ],
+    [
+     579600,
+     0.15
+    ],
+    [
+     null,
+     0.2
+    ]
+   ]
+  },
+  "state_tax_rate": 0.05,
+  "early_withdrawal_penalty": 0.1,
+  "penalty_free_age": 59.5,
+  "use_72t_sepp": false,
+  "assume_qualified_plan_age55_exception": false,
+  "ss_provisional_thresholds": {
+   "single": [
+    25000,
+    34000
+   ],
+   "married_filing_jointly": [
+    32000,
+    44000
+   ],
+   "qualifying_surviving_spouse": [
+    32000,
+    44000
+   ],
+   "head_of_household": [
+    25000,
+    34000
+   ]
+  },
+  "ss_max_taxable_fraction": 0.85,
+  "niit_rate": 0.038,
+  "niit_thresholds": {
+   "single": 200000,
+   "married_filing_jointly": 250000,
+   "qualifying_surviving_spouse": 250000,
+   "head_of_household": 200000
+  }
+ },
+ "healthcare": {
+  "pre_medicare_annual_premium": 12000,
+  "medicare_annual_premium": 2500,
+  "medicare_age": 65
+ },
+ "simulation": {
+  "current_age": 35,
+  "min_retirement_age": 40,
+  "max_retirement_age": 70,
+  "target_success_probability": 0.95,
+  "monte_carlo_runs": 5000,
+  "random_seed": 20260815,
+  "common_random_numbers": true,
+  "glide_path": true,
+  "glide_path_start_stock_pct": 0.9,
+  "glide_path_end_stock_pct": 0.5,
+  "glide_path_years": 31,
+  "return_distribution_degrees_of_freedom": 6,
+  "static_stock_allocation": 0.75,
+  "compensate_crisis_drag": true,
+  "rmd_start_age": 75,
+  "normal_regime": {
+   "return_boost": 0,
+   "volatility_multiplier": 1,
+   "monthly_crisis_probability": 0.015
+  },
+  "crisis_regime": {
+   "annual_return_drag": -0.12,
+   "volatility_multiplier": 2,
+   "monthly_recovery_probability": 0.055
+  }
+ },
+ "spending": {
+  "initial_annual_expenses": 80000,
+  "spending_decline_start_age": 70,
+  "annual_spending_decline_rate": 0.99,
+  "spending_decline_end_age": 80,
+  "annual_healthcare_increase_rate": 0.015,
+  "guardrail_cut_return_threshold": -0.1,
+  "guardrail_cut_amount": 0.9,
+  "guardrail_cut_floor": 0.7,
+  "guardrail_raise_return_threshold": 0.15,
+  "guardrail_raise_amount": 1.05,
+  "guardrail_raise_ceiling": 1.3
+ }
+};
+
+/* ======================= FIELD DEFINITIONS ======================= */
+// Each entry maps a widget onto a dotted path in the config, exactly like the
+// desktop app's FIELD_PATHS / CHECKBOX_PATHS.
+const COMMON_SECTIONS = [
+  { title: 'Your Details', rows: [
+    ['current_age', 'simulation.current_age', 'Current Age', 'Your current age'],
+    ['min_retirement_age', 'simulation.min_retirement_age', 'Min Retirement Age', 'Earliest retirement age to simulate'],
+    ['max_retirement_age', 'simulation.max_retirement_age', 'Max Retirement Age', 'Latest retirement age to simulate'],
+    ['target_success_probability', 'simulation.target_success_probability', 'Target Success Rate', 'Success threshold (0.95 = 95%)'],
+    ['monte_carlo_runs', 'simulation.monte_carlo_runs', 'Monte Carlo Runs', 'More = more accurate but slower (1000-10000)'],
+    ['random_seed', 'simulation.random_seed', 'Random Seed', 'Fixed seed = reproducible comparisons; -1 = fresh randomness'],
+    ['rmd_start_age', 'simulation.rmd_start_age', 'RMD Start Age', '73 if born 1951-1959, 75 if born 1960+ (SECURE 2.0)'],
+  ]},
+  { title: "Account Balances", sub: "today's dollars", rows: [
+    ['roth', 'accounts.roth', 'Roth', 'Roth retirement accounts balance (Roth IRA, Roth 401k)'],
+    ['traditional', 'accounts.traditional', 'Traditional', 'Traditional retirement accounts balance (IRA, 401k)'],
+    ['brokerage', 'accounts.brokerage', 'Brokerage', 'Taxable brokerage accounts balance'],
+    ['cash', 'accounts.cash', 'Cash / Savings', 'Cash, savings, money market balance'],
+    ['brokerage_basis', 'accounts.brokerage_cost_basis', 'Brokerage Cost Basis', 'What you PAID for the brokerage holdings; only gains above it are taxed. The IRS never indexes it, so inflation erodes it into taxable gain'],
+  ]},
+  { title: 'Annual Contributions', rows: [
+    ['annual_roth', 'contributions.annual_roth', 'Roth', 'Annual Roth contributions (Roth IRA, Roth 401k)'],
+    ['annual_traditional', 'contributions.annual_traditional', 'Traditional', 'Annual traditional contributions, including employer match'],
+    ['annual_brokerage', 'contributions.annual_brokerage', 'Brokerage', 'Annual taxable brokerage contributions'],
+    ['annual_cash', 'contributions.annual_cash', 'Cash', 'Annual cash savings'],
+    ['contrib_growth_rate', 'contributions.annual_contribution_growth_rate', 'Contribution Growth', 'REAL annual growth, above inflation (keep near 0)'],
+  ]},
+  { title: 'Spending & Healthcare', sub: 'premiums ADD to expenses, per person', rows: [
+    ['annual_expenses', 'spending.initial_annual_expenses', 'Annual Expenses', 'Annual spending EXCLUDING health premiums'],
+    ['pre_medicare_premium', 'healthcare.pre_medicare_annual_premium', 'Pre-Medicare Premium', 'Annual ACA/marketplace cost before Medicare. The big early-retirement cost'],
+    ['medicare_premium', 'healthcare.medicare_annual_premium', 'Medicare Premium', 'Annual Part B + D + supplement cost after Medicare age'],
+    ['medicare_age', 'healthcare.medicare_age', 'Medicare Age', 'Age Medicare begins and the pre-Medicare premium stops (65)'],
+  ]},
+  { title: 'Social Security', rows: [
+    ['ss_claim_age', 'life_events.ss_claim_age', 'Claim Age', '62-70. Early claims are reduced, late claims credited 8%/yr'],
+    ['ss_benefit', 'life_events.ss_annual_full_retirement_benefit', 'FRA Benefit (full career)', 'Benefit at full retirement age for a FULL 35-year career (ssa.gov/myaccount)'],
+    ['ss_years_worked', 'life_events.ss_earnings_years_at_current_age', 'Covered Years So Far', 'Years of SS-covered earnings you already have (35-year average)'],
+    ['ss_credits', 'life_events.ss_credits_at_current_age', 'Credits So Far', 'SSA credits earned (4/year); 40 required for ANY retirement benefit'],
+  ]},
+];
+
+const ADVANCED_SECTIONS = [
+  { title: 'Market Assumptions', rows: [
+    ['stock_return', 'market.stock_return', 'Stock Return (nominal)', 'Expected annual return before inflation (historical ~10%)'],
+    ['bond_return', 'market.bond_return', 'Bond Return (nominal)', 'Expected annual bond return'],
+    ['stock_volatility', 'market.stock_volatility', 'Stock Volatility', 'Calm-market annual std dev; crises multiply it'],
+    ['bond_volatility', 'market.bond_volatility', 'Bond Volatility', 'Annual standard deviation of bond returns'],
+    ['inflation', 'market.inflation', 'Inflation', 'Expected annual inflation (0.03 = 3%)'],
+    ['inflation_vol', 'market.inflation_volatility', 'Inflation Volatility', 'Std dev of inflation. Hurts bonds/cash, which pay fixed nominal amounts'],
+    ['cash_return', 'market.cash_return', 'Cash Return', 'Expected nominal return on cash / savings accounts'],
+    ['stock_dividend_yield', 'market.stock_dividend_yield', 'Stock Dividend Yield', 'Taxable-account dividend yield, taxed yearly at LTCG rates (~1.5% for an index fund)'],
+    ['bond_taxable_yield', 'market.bond_taxable_yield', 'Bond Taxable Yield', 'Taxable-account bond interest, taxed yearly at ordinary rates'],
+    ['stock_bond_corr', 'market.stock_bond_correlation', 'Stock/Bond Correlation', 'Range -1 to 1. -0.3 means bonds tend to rise when stocks fall (a hedge)'],
+  ]},
+  { title: 'Asset Allocation', sub: 'glide path', rows: [
+    { check: true, key: 'glide_path', path: 'simulation.glide_path', label: 'Use Glide Path', desc: 'Shift allocation linearly after retirement (either direction)' },
+    ['glide_start', 'simulation.glide_path_start_stock_pct', 'Starting Stock %', 'Stock allocation at retirement (0.90 = 90% stocks)'],
+    ['glide_end', 'simulation.glide_path_end_stock_pct', 'Ending Stock %', 'Final stock allocation (0.50 = 50% stocks)'],
+    ['glide_years', 'simulation.glide_path_years', 'Glide Path Years', 'Years to transition from starting to ending allocation'],
+    ['static_stock', 'simulation.static_stock_allocation', 'Static Stock %', 'Fixed stock allocation if glide path is off'],
+  ]},
+  { title: 'Market Crashes', sub: 'regime switching', rows: [
+    ['t_df', 'simulation.return_distribution_degrees_of_freedom', 'T-Distribution DF', 'Fat-tail severity: lower = more extreme crashes (6 = realistic)'],
+    ['crisis_prob', 'simulation.normal_regime.monthly_crisis_probability', 'Monthly Crisis Probability', 'Chance of entering a bear market each month (0.015 = 1.5%)'],
+    ['recovery_prob', 'simulation.crisis_regime.monthly_recovery_probability', 'Monthly Recovery Probability', 'Chance of exiting each month (0.055 = ~18-month bears)'],
+    ['crisis_drag', 'simulation.crisis_regime.annual_return_drag', 'Crisis Return Drag', 'Annual return penalty during crisis (-0.12 = -12%)'],
+    ['crisis_vol', 'simulation.crisis_regime.volatility_multiplier', 'Crisis Volatility Multiplier', 'How much wilder the market gets in a crisis (2.0 = twice)'],
+    ['calm_boost', 'simulation.normal_regime.return_boost', 'Calm Return Boost', 'Annual boost in calm markets (0.0 = none; drag compensation adjusts it further)'],
+    ['calm_vol', 'simulation.normal_regime.volatility_multiplier', 'Calm Volatility Multiplier', 'Calm-market volatility multiplier (usually 1.0)'],
+    { check: true, key: 'compensate_drag', path: 'simulation.compensate_crisis_drag', label: 'Compensate Crisis Drag', desc: 'Raise calm-market returns so the LONG-RUN average equals your stock return' },
+    { check: true, key: 'common_random_numbers', path: 'simulation.common_random_numbers', label: 'Common Random Numbers', desc: 'Test every retirement age against the SAME lifetimes (leave on for clean comparisons)' },
+  ]},
+  { title: 'Spending Adjustments Over Time', rows: [
+    ['decline_start', 'spending.spending_decline_start_age', 'Decline Start Age', 'Age when spending naturally starts declining'],
+    ['decline_rate', 'spending.annual_spending_decline_rate', 'Annual Decline Rate', 'Spending multiplier per year (0.99 = 1% annual decline)'],
+    ['decline_end', 'spending.spending_decline_end_age', 'Decline End Age', 'Age the decline stops and healthcare costs ramp up'],
+    ['healthcare_rate', 'spending.annual_healthcare_increase_rate', 'Healthcare Increase Rate', 'Annual growth of the health premiums after decline ends (medical inflation above CPI)'],
+  ]},
+  { title: 'Spending Guardrails', rows: [
+    ['guard_cut_thresh', 'spending.guardrail_cut_return_threshold', 'Cut Return Threshold', "Cut spending if the portfolio's return was worse than this in a year (-0.10 = -10%)"],
+    ['guard_cut_amt', 'spending.guardrail_cut_amount', 'Cut Amount', 'Multiply spending by this when cutting (0.90 = 10% cut)'],
+    ['guard_cut_floor', 'spending.guardrail_cut_floor', 'Cut Floor', 'Never cut spending below this fraction of plan'],
+    ['guard_raise_thresh', 'spending.guardrail_raise_return_threshold', 'Raise Return Threshold', "Raise spending if the portfolio's return exceeded this in a year (0.15 = 15%)"],
+    ['guard_raise_amt', 'spending.guardrail_raise_amount', 'Raise Amount', 'Multiply spending by this when raising (1.05 = 5% raise)'],
+    ['guard_raise_ceil', 'spending.guardrail_raise_ceiling', 'Raise Ceiling', 'Never raise spending above this fraction of plan'],
+  ]},
+  { title: 'Taxes', sub: 'brackets and deductions are in the tables at the bottom, per filing status', rows: [
+    { select: ['married_filing_jointly', 'single', 'head_of_household', 'qualifying_surviving_spouse'], key: 'filing_status', path: 'taxes.filing_status', label: 'Filing Status', desc: 'married_filing_jointly / single / head_of_household. Survivor switches to single' },
+    ['state_tax', 'taxes.state_tax_rate', 'State Tax Rate', 'Flat approximation. Use 0.0 for TX/FL/WA/NV/TN'],
+    ['early_penalty', 'taxes.early_withdrawal_penalty', 'Early Withdrawal Penalty', 'IRS penalty on traditional withdrawals before the age below (0.10 = 10%)'],
+    ['penalty_age', 'taxes.penalty_free_age', 'Penalty-Free Age', 'Age the early withdrawal penalty stops applying (59.5)'],
+    ['niit_rate', 'taxes.niit_rate', 'NIIT Rate', 'Net Investment Income Tax (0.038 = 3.8% over the AGI threshold)'],
+    { check: true, key: 'use_72t', path: 'taxes.use_72t_sepp', label: 'Assume 72(t) / Roth Ladder', desc: 'Waives the 10% penalty. Requires real planning outside this model; off is conservative' },
+    { check: true, key: 'age55_exception', path: 'taxes.assume_qualified_plan_age55_exception', label: 'Rule-of-55 Exception', desc: 'Penalty-free employer-plan withdrawals from 55. Only for 401k money left in the plan' },
+  ]},
+  { title: 'Life Expectancy', rows: [
+    { select: ['ssa_inspired', 'normal'], key: 'mortality_model', path: 'life_events.mortality_model', label: 'Mortality Model', desc: 'ssa_inspired (actuarial, realistic) or normal (plan to a chosen age)' },
+    { select: ['male', 'female'], key: 'mortality_sex', path: 'life_events.mortality_sex', label: 'Mortality Sex', desc: 'male or female (sets the actuarial curve)' },
+    ['death_mean', 'life_events.death_age_mean', 'Mean Death Age', 'Normal model only: average lifespan for planning'],
+    ['death_std', 'life_events.death_age_std', 'Std Deviation', 'Normal model only: uncertainty in lifespan'],
+    ['death_min', 'life_events.death_age_min', 'Minimum Death Age', 'Normal model only: earliest possible death'],
+    ['death_max', 'life_events.death_age_max', 'Maximum Death Age', 'Hard cap for BOTH models; also sizes the fan chart'],
+  ]},
+  { title: 'Spouse / Partner', rows: [
+    { check: true, key: 'spouse_enabled', path: 'spouse.enabled', label: 'Model a Spouse', desc: 'Two lifespans, two SS benefits, survivor benefit and single filing on first death' },
+    ['spouse_age_offset', 'spouse.age_offset', 'Spouse Age Offset', 'Spouse age minus yours (+2 = two years older)'],
+    ['spouse_ss_claim_age', 'spouse.ss_claim_age', 'Spouse SS Claim Age', 'Age they start Social Security (62-70)'],
+    ['spouse_ss_benefit', 'spouse.ss_annual_full_retirement_benefit', 'Spouse FRA Benefit', 'Their full-career FRA benefit; 0 = stay-at-home, spousal benefit applies'],
+    ['spouse_ss_years_worked', 'spouse.ss_earnings_years_at_current_age', 'Spouse Years Worked', 'Their years of SS-covered earnings so far'],
+    ['spouse_ss_credits', 'spouse.ss_credits_at_current_age', 'Spouse Credits', 'Their SSA credits so far (40 needed for an own benefit)'],
+    ['survivor_spending', 'spouse.survivor_spending_factor', 'Survivor Spending Factor', 'Spending after the first death (0.75 = 75%; housing barely changes)'],
+    { select: ['ssa_inspired', 'normal'], key: 'spouse_mortality_model', path: 'spouse.mortality_model', label: 'Spouse Mortality Model', desc: 'ssa_inspired or normal' },
+    { select: ['female', 'male'], key: 'spouse_mortality_sex', path: 'spouse.mortality_sex', label: 'Spouse Mortality Sex', desc: 'male or female' },
+    ['spouse_death_mean', 'spouse.death_age_mean', 'Spouse Mean Death Age', 'Normal model only'],
+    ['spouse_death_std', 'spouse.death_age_std', 'Spouse Death Std Dev', 'Normal model only'],
+    ['spouse_death_min', 'spouse.death_age_min', 'Spouse Min Death Age', 'Normal model only'],
+    ['spouse_death_max', 'spouse.death_age_max', 'Spouse Max Death Age', 'Hard cap for both models'],
+  ]},
+  { title: 'Statutory Constants & Tax Tables', sub: 'in the desktop app these live only in the settings file', rows: [
+    ['ss_years_required', 'life_events.ss_benefit_years_required', 'SS Averaging Years', 'Years SSA averages into the benefit (statutory: 35)'],
+    ['ss_eligibility_credits', 'life_events.ss_retirement_eligibility_credits', 'SS Eligibility Credits', 'Credits needed for ANY retirement benefit (current law: 40)'],
+    ['ss_max_taxable', 'taxes.ss_max_taxable_fraction', 'SS Max Taxable Fraction', 'Largest share of Social Security that can be taxed (0.85)'],
+    { json: true, key: 'tax_tables', label: 'Tax tables (JSON, per filing status)', desc: '2026 federal figures: standard deductions, the IRC 63(f) age-65 additions, ordinary and LTCG brackets as [upper_bound, rate] pairs with null on the top bracket, SS provisional-income thresholds and NIIT thresholds.' },
+  ]},
+];
+
+const TAX_TABLE_KEYS = ['standard_deductions', 'additional_standard_deductions_65plus', 'federal_brackets',
+                        'ltcg_brackets', 'ss_provisional_thresholds', 'niit_thresholds'];
+
+/* ======================= LONG-FORM HELP ======================= */
+const FIELD_HELP = {
+ "current_age": "Your age today.\n\nEverything starts here: the years between this age and your retirement age are\nthe years you keep saving, and the simulation begins on your next birthday.",
+ "min_retirement_age": "The earliest retirement age to test.\n\nThe app does not pick one retirement age -- it tests every age from this one up\nto the maximum below, and shows you the odds for each. Set this to the earliest\nage you would seriously consider, even if it looks optimistic. Seeing it fail is\nuseful information.",
+ "max_retirement_age": "The latest retirement age to test.\n\nTesting more ages takes longer -- roughly two seconds per age -- so there is no\npoint going past the age where you are clearly safe.",
+ "target_success_probability": "How sure you want to be, as a decimal.\n\n0.95 means \"I want a 95% chance the money lasts\". The headline answer is the\nearliest age that clears this bar.\n\nThere is no universally correct value. 0.95 is the convention in retirement\nresearch. Below about 0.80 you are taking a real risk of running out; above\n0.99 you will likely die with a very large unspent balance, which is its own\nkind of mistake.",
+ "roth": "Current balance of all your Roth accounts (Roth IRA, Roth 401k).\n\nRoth money has already been taxed, so withdrawals are completely tax-free. The\nmodel spends this LAST, on purpose -- leaving it untouched the longest lets it\ngrow tax-free for as long as possible.",
+ "traditional": "Current balance of all pre-tax retirement accounts:\ntraditional 401k, traditional IRA, 403b, and similar.\n\nYou have never paid tax on this money, so every dollar withdrawn counts as\nordinary income. Two consequences the model handles for you: withdrawals before\nage 59.5 usually carry an extra 10% penalty, and from age 75 the IRS forces\nminimum withdrawals whether you want the money or not.",
+ "brokerage": "Current balance of ordinary taxable investment accounts --\nthe kind with no retirement rules attached.\n\nWhen you sell, you owe tax only on the profit, usually at the lower capital\ngains rate. You are also taxed each year on dividends and interest even if you\nsell nothing, which the model accounts for.",
+ "cash": "Savings, checking and money market balances.\n\nTreated as a separate safe bucket: it earns the cash return rather than the\nstock/bond mix, and it is spent FIRST because a dollar of cash is a dollar you\ncan spend without triggering any tax.\n\nNote that cash sitting outside your investment mix quietly lowers your real\nstock exposure. If cash is 20% of your money, a \"90% stocks\" setting is really\nabout 72% stocks overall.",
+ "brokerage_basis": "What you originally PAID for your taxable brokerage\nholdings -- not what they are worth now.\n\nOnly the growth above this figure is taxed when you sell. If your brokerage\naccount is worth $25,000 and you paid $20,000 for it, then $5,000 is taxable\nprofit and the other $20,000 is just your own money coming back.\n\nIf you do not know it, look for \"cost basis\" on your brokerage statement. A\nrough guess is fine: 60-80% of the balance for an account you funded recently,\nless for one you have held for decades.\n\nOne thing that surprises people: the IRS never adjusts this figure for\ninflation, so as prices rise, more of your balance counts as \"profit\" even if\nyou gained nothing in real terms. The model reproduces that.",
+ "annual_roth": "How much you put into Roth accounts each year, in today's\ndollars.\n\nInclude your own contributions only. Enter what you save in a typical year, not\nyour best year.",
+ "annual_traditional": "How much goes into pre-tax accounts each year --\nyour own 401k/IRA contributions PLUS any employer match.\n\nThe match is real money that compounds for you, so leaving it out understates\nyour savings meaningfully.",
+ "annual_brokerage": "How much you add to ordinary taxable investment\naccounts each year, in today's dollars.",
+ "annual_cash": "How much you add to plain savings each year, beyond your\ninvestment accounts. Leave at 0 if you are not deliberately building cash.",
+ "contrib_growth_rate": "How fast your saving grows each year ABOVE\ninflation, as a decimal.\n\nLeave this at 0. That does NOT mean your contributions stay flat -- it means\nthey keep pace with inflation, so you would actually be writing bigger checks\nevery year (about 3% bigger) while the sacrifice stays the same.\n\n0.03 would mean a 3% raise EVERY year on top of inflation, for your whole\ncareer. That compounds to nearly double your real saving after 20 years, which\nis far more optimistic than it sounds. Long-run real wage growth is under 1%.",
+ "annual_expenses": "What you expect to spend per year in retirement, in\ntoday's dollars, EXCLUDING health insurance premiums.\n\nLeave health premiums out -- they are entered separately below, because they\nchange sharply at 65 when Medicare starts.\n\nThis is the single most important number in the whole app. A useful starting\npoint is what you spend now, minus what you currently save, minus costs that\nstop at retirement (commuting, a mortgage that will be paid off).",
+ "decline_start": "The age at which spending starts to drift down.\n\nReal retirees tend to spend less as they age -- less travel, fewer big\npurchases. Researchers call the whole pattern the \"retirement spending smile\":\ndown through your 70s, then up again late in life through healthcare.",
+ "decline_rate": "How fast spending falls each year during the decline\nwindow, as a multiplier.\n\n0.99 means you spend 1% less each year than the year before. 1.0 turns the\ndecline off entirely, which is the conservative choice.",
+ "decline_end": "The age at which the spending decline stops.\n\nAfter this, base spending stays flat at its reduced level and it is healthcare\ncosts that start rising instead.",
+ "healthcare_rate": "How fast health premiums grow each year after the\ndecline ends, above general inflation.\n\nMedical costs have historically outrun everything else. 0.015 (1.5% a year\nabove inflation) is a reasonable, moderate assumption.",
+ "pre_medicare_premium": "Yearly health insurance cost PER PERSON before\nMedicare starts, in today's dollars.\n\nThis is the number that makes early retirement expensive. Before 65 you buy\nyour own coverage on the open market with no employer paying most of it.\n$12,000 a year is typical for one unsubsidised adult including out-of-pocket\ncosts -- though if your taxable income in retirement is low, subsidies can cut\nthis a lot.",
+ "medicare_premium": "Yearly health cost PER PERSON once Medicare starts,\nin today's dollars.\n\nMedicare is not free. Roughly $2,500 a year covers Part B, Part D and a\nsupplement policy.",
+ "medicare_age": "The age Medicare begins. This is 65 under current law;\nthere is no reason to change it unless you are testing a what-if.",
+ "ss_claim_age": "The age you start taking Social Security.\n\nClaiming early permanently shrinks the monthly check; waiting permanently grows\nit. At 62 you get 70% of your full benefit; at 67 (full retirement age) you get\n100%; at 70 you get 124%.\n\nWaiting is often the better deal if you expect to live into your 80s, and it\ndoubles as insurance against living a very long time. But claiming early can\nmake sense if you retire well before 67 and would otherwise have to sell\ninvestments in a downturn to bridge the gap.",
+ "ss_benefit": "Your estimated yearly Social Security at full retirement\nage (67), assuming a full 35-year career.\n\nGet the real number from ssa.gov/myaccount -- it takes a few minutes and is far\nbetter than a guess. Enter the ANNUAL figure (the site shows monthly, so\nmultiply by 12).\n\nEnter the full-career number even if you plan to retire early. The app works\nout the reduction for a shorter career itself, using the real Social Security\nformula.",
+ "ss_years_worked": "How many years you have already worked and paid\nSocial Security taxes.\n\nSocial Security averages your best 35 years, and any year you did not work\ncounts as a zero in that average. So retiring early costs you twice: fewer\nyears of earnings, and zeros dragging down the average.",
+ "ss_credits": "Social Security work credits you have already earned. Your\nssa.gov statement shows this.\n\nYou earn up to 4 per year, and you need 40 -- about ten years of work -- to\nqualify for ANY retirement benefit at all. If you would retire before reaching\n40, the model correctly pays you nothing.",
+ "stock_return": "Expected yearly stock return BEFORE subtracting\ninflation.\n\nEnter the normal, quoted kind of number. US stocks have returned about 10% a\nyear historically; most forecasters expect less going forward, so 7-8% is a\nreasonable planning figure and lower is more cautious.\n\nThe app subtracts inflation for you. At 8% with 3% inflation it uses about\n4.85% of real growth.\n\nThis is a long-run average, not a promise. Individual years vary enormously,\nwhich is the entire point of running thousands of simulations.",
+ "bond_return": "Expected yearly bond return before inflation. Roughly\ntoday's yield on intermediate-term bonds is a fair estimate.",
+ "cash_return": "Expected yearly interest on savings and money market\nbalances, before inflation.\n\nCash usually barely keeps up with inflation after tax, which is why holding a\nlot of it for decades has a real cost.",
+ "stock_volatility": "How much stock returns bounce around, as a decimal.\nThis is the CALM-market figure.\n\n0.15 is right for a broad stock index. The app adds market crises on top, which\npushes the effective all-in figure to about 19% -- matching the real historical\nrange for US stocks.\n\nBigger number means a wider spread of outcomes, both good and bad.",
+ "bond_volatility": "How much bond returns bounce around. Around 0.05 for\nintermediate-term bonds -- much steadier than stocks, which is the point of\nowning them.",
+ "inflation": "Expected long-run yearly inflation.\n\nLong-run US inflation has been about 3%; the Federal Reserve targets 2%.\n\nThis is what converts your entered returns into real growth, so it matters a\nlot. A higher number here makes every investment return worth less.",
+ "inflation_vol": "How uncertain inflation is, as a yearly standard\ndeviation.\n\nThis matters because bonds and cash promise a FIXED number of dollars. If\ninflation comes in higher than expected, those dollars buy less and the loss\ncomes straight off your real return. Stocks are treated as roughly\ninflation-proof over the long run. 0.015 matches post-war US experience.",
+ "stock_dividend_yield": "The share of stock returns paid out as dividends\neach year, rather than showing up as price growth.\n\nThis does not change your total return -- it changes your TAX. Dividends are\ntaxed every year even if you never sell. About 1.5% matches a broad US index\nfund. Only affects taxable brokerage money.",
+ "bond_taxable_yield": "The share of bond returns paid out as interest each\nyear.\n\nSame idea as dividends, but interest is taxed at higher ordinary rates. Set it\nroughly equal to your bond return, since nearly all of a bond's return is\ninterest.",
+ "stock_bond_corr": "How stocks and bonds move together, from -1 to +1.\n\nNegative means bonds tend to rise when stocks fall, which is the diversification\npeople hope for. But be careful: this was reliably negative from 2000-2021 and\nstrongly POSITIVE in 2022 when both fell hard together. Near zero is the honest\nlong-run assumption; anything below -0.2 assumes a dependable hedge that may not\nshow up when you need it.",
+ "glide_path": "When ticked, your stock percentage changes gradually\nthrough retirement instead of staying fixed.\n\nThe traditional advice is to get more conservative with age. Some researchers\nargue the opposite -- starting conservative at retirement and rising -- protects\nbetter against a crash in your first few years. Both are valid; the app lets you\ntest either.",
+ "glide_start": "The share in stocks on the day you retire, as a decimal\n(0.90 = 90% stocks).\n\nRemember this applies to your invested accounts only. Cash sits outside the mix,\nso a large cash balance means your true stock exposure is lower than this.",
+ "glide_end": "The share in stocks once the glide is complete.\n\nSetting this HIGHER than the start is allowed and is a real strategy -- see the\nglide path help above.",
+ "glide_years": "How many years the shift from the starting mix to the\nending mix takes.",
+ "static_stock": "The fixed share in stocks, used only when the glide path\nis switched off.",
+ "t_df": "Controls how extreme the worst months can get.\n\nReal markets crash harder and more often than a simple bell curve predicts. A\nLOWER number here means fatter tails -- more severe crashes. 6 reproduces the\nhistorical frequency of big one-year losses. Above 30 essentially removes fat\ntails, which is unrealistically calm.",
+ "crisis_prob": "The chance each month of tipping into a market crisis.\n\n0.015 works out to roughly one crisis every 5.6 years, matching how often real\nbear markets arrive. Set to 0 to switch crises off entirely.",
+ "recovery_prob": "The chance each month of coming OUT of a crisis. This\nsets how LONG crises last.\n\n0.055 gives an average of about 18 months, matching the historical average bear\nmarket. Higher values produce brief dips and would understate the drawn-out\ndownturns that actually break retirements.",
+ "crisis_drag": "How much worse yearly returns are during a crisis.\n\nRough guide: -0.08 is a correction, -0.12 a typical bear market, -0.20 a\n2008-style crash.",
+ "crisis_vol": "How much more violently markets swing during a crisis. 2.0\nmeans twice the normal volatility.",
+ "calm_boost": "An optional bonus to returns during calm periods, on top of\nyour stock return. Normally 0.",
+ "calm_vol": "Volatility multiplier during calm periods. Normally 1.0,\nmeaning your stock volatility applies as entered.",
+ "compensate_drag": "When ticked, calm-market returns are raised just\nenough that the LONG-RUN average equals the stock return you entered.\n\nLeave this on unless you know you want otherwise. With it off, recurring crises\nquietly drag your average return well below what you asked for, and your entered\n8% might actually deliver 2%.",
+ "guard_cut_thresh": "If your portfolio returns worse than this over the\npast year, you cut back spending next year.\n\nThis is what real retirees do -- nobody keeps spending identically through a\ncrash. Modelling that flexibility is what makes higher withdrawal rates\nsurvivable.",
+ "guard_cut_amt": "How much you cut spending after a bad year. 0.90 means\nspending 10% less.",
+ "guard_cut_floor": "The most you would ever cut, as a share of plan. 0.70\nmeans you will never go below 70% of planned spending, no matter how many bad\nyears arrive.\n\nSet this to the level below which your budget genuinely cannot flex.",
+ "guard_raise_thresh": "If your portfolio returns better than this over the\npast year, you allow yourself to spend a bit more.",
+ "guard_raise_amt": "How much you increase spending after a good year. 1.05\nmeans 5% more.",
+ "guard_raise_ceil": "The most you would ever raise spending to, as a share\nof plan. 1.30 means never more than 130% of the original plan.",
+ "filing_status": "Your tax filing status: single, married_filing_jointly,\nhead_of_household, or qualifying_surviving_spouse.\n\nImportant: this is separate from the \"model a spouse\" tick box. Turning spouse\nmodelling off does NOT make you a single filer. This box controls the tax\nbrackets; that box controls whether a second person's lifespan and benefit are\nsimulated.",
+ "state_tax": "Your state income tax rate as a decimal. Use 0.0 for states\nwith no income tax (Texas, Florida, Washington, Nevada, Tennessee and others).\n\nThis is a flat approximation -- the app does not model state brackets or state\nretirement-income exclusions, which many states offer. If your state has them,\nyour real tax will be lower than modelled.",
+ "early_penalty": "The extra tax on pre-tax retirement withdrawals taken\ntoo early. 0.10 (10%) is current law.",
+ "penalty_age": "The age the early withdrawal penalty stops applying. 59.5\nunder current law.",
+ "niit_rate": "A 3.8% surtax on investment income for high earners. Rarely\napplies at modest retirement spending, but it is real law and cheap to model\nexactly.",
+ "use_72t": "Tick if you plan to use a Rule 72(t) withdrawal schedule or a\nRoth conversion ladder -- both legally avoid the 10% early penalty.\n\nBoth take genuine planning and commitment to set up, so leaving this unticked is\nthe cautious choice. Withdrawals are still taxed as income either way.",
+ "age55_exception": "Tick only if the money in your pre-tax bucket is\ngenuinely in an employer 401k/403b that you will leave in the plan.\n\nThe \"rule of 55\" lets you take from an employer plan penalty-free if you leave\nthat job in or after the year you turn 55. IRAs never qualify -- if you have\nrolled everything into an IRA, leave this unticked.",
+ "rmd_start_age": "The age the IRS forces you to start withdrawing from\npre-tax accounts, whether you need the money or not.\n\nUnder current law: 73 if you were born 1951-1959, 75 if born 1960 or later.",
+ "mortality_model": "How the app decides how long you live.\n\n\"ssa_inspired\" draws a realistic range of lifespans from actuarial data -- some\nruns end in your 60s, a few past 100. This is the honest choice, because living\na long time is itself a financial risk.\n\n\"normal\" lets you dictate the range by hand with the four boxes below, useful\nfor a \"what if I plan to exactly 95\" test.",
+ "mortality_sex": "male or female, used to pick the right mortality table.\nWomen live meaningfully longer on average, so this changes the answer.",
+ "death_mean": "Average age at death. Used ONLY when the model is set to\n\"normal\" -- ignored entirely by \"ssa_inspired\".",
+ "death_std": "How much lifespans vary around that average, in years. Used\nonly by the \"normal\" model.",
+ "death_min": "The youngest age at death to consider. Used only by the\n\"normal\" model.",
+ "death_max": "The oldest possible age. This applies to BOTH models, and it\nalso sets how far the portfolio chart runs.",
+ "spouse_enabled": "Tick to model a second person.\n\nThis changes several things at once: household spending drops after the first\ndeath, the survivor inherits the larger of the two Social Security benefits, and\nthe survivor starts filing taxes as single -- half the standard deduction and\ntighter brackets. That last effect is a real and often-missed hit to a widowed\nhousehold's income.",
+ "spouse_age_offset": "Your spouse's age relative to yours. -2 means they\nare two years younger; +3 means three years older.",
+ "spouse_ss_claim_age": "The age your spouse starts Social Security. Same\ntrade-off as your own claim age.",
+ "spouse_ss_benefit": "Your spouse's own yearly benefit at full retirement\nage, from their ssa.gov account.\n\nSet to 0 for a partner with little or no earnings record. They will still\ncollect a SPOUSAL benefit worth up to half of yours -- the app applies that\nautomatically, so 0 here does not mean they get nothing.",
+ "spouse_ss_years_worked": "Years your spouse has already paid into Social\nSecurity. 0 is fine for a partner who has not worked.",
+ "spouse_ss_credits": "Your spouse's Social Security credits (0-40). Only\naffects their own benefit, not the spousal benefit.",
+ "survivor_spending": "What the surviving partner spends, as a share of\nwhat the couple spent together.\n\nNot 0.5. Rent, utilities, insurance and property taxes barely change when one\nperson dies. 0.75 is a realistic figure.",
+ "spouse_mortality_model": "How your spouse's lifespan is drawn. Same\nchoices as your own.",
+ "spouse_mortality_sex": "male or female, used to pick your spouse's\nmortality table.\n\nWomen live meaningfully longer on average, so for a mixed-sex couple this\nusually means the wife outlives the husband by several years -- and those extra\nyears are spent filing taxes as a single person on a reduced Social Security\nbenefit. Getting this right matters more than it looks.",
+ "spouse_death_mean": "Your spouse's average age at death. Used only by the\n\"normal\" model.",
+ "spouse_death_std": "How much your spouse's lifespan varies. Used only by\nthe \"normal\" model.",
+ "spouse_death_min": "The youngest age at death to consider for your\nspouse.\n\nUsed only when your spouse's mortality model is set to \"normal\" -- the\n\"ssa_inspired\" model ignores it and draws from actuarial data instead.",
+ "spouse_death_max": "Oldest possible age for your spouse. Applies to both\nmodels.",
+ "monte_carlo_runs": "How many separate futures to simulate for each\nretirement age.\n\nMore runs give a steadier answer but take longer. 1,000 is fine while you are\nexperimenting; 5,000 is good for a decision you will act on. Below about 500 the\nnumber wobbles enough between runs to be misleading.",
+ "random_seed": "Controls the random numbers.\n\nAny number 0 or above makes runs exactly repeatable -- run it twice, get the\nsame answer. Use -1 for fresh randomness each time.\n\nKeep a fixed seed when comparing two choices, so the difference you see is the\nchoice and not luck.",
+ "common_random_numbers": "When ticked, every retirement age is tested\nagainst the SAME set of simulated futures.\n\nLeave this on. It means the difference between retiring at 57 and 58 reflects\nthat one extra year, not random luck, and it makes the results curve smooth\ninstead of jagged exactly where you read it.",
+ "ss_years_required": "How many years Social Security averages when it works out your benefit.\n\nUnder current law SSA takes your best 35 years of earnings; years you did not work count as zero in that average. There is no reason to change this unless you are testing a what-if about the law itself.",
+ "ss_eligibility_credits": "How many work credits Social Security requires before it pays ANY retirement benefit.\n\nCurrent law is 40 credits, roughly ten years of covered work. Retire before you reach it and the model pays nothing, because SSA would pay nothing.",
+ "ss_max_taxable": "The largest share of a Social Security benefit that can be subject to income tax.\n\nUnder the provisional-income rules (IRC 86) this is 85%. Lower it only to test a change in the law.",
+ "tax_tables": "The per-filing-status tax tables the model uses, as JSON. In the desktop app these live only in the settings file.\n\n  * standard_deductions: the base deduction by filing status.\n  * additional_standard_deductions_65plus: the IRC 63(f) addition claimed once per filer past 65 (twice on a joint return where both are).\n  * federal_brackets and ltcg_brackets: [upper_bound, rate] pairs in TAXABLE income, lowest first, with null as the upper bound of the top bracket.\n  * ss_provisional_thresholds: the two [lower, upper] thresholds for Social Security taxability.\n  * niit_thresholds: the AGI level above which the 3.8% Net Investment Income Tax applies.\n\nEvery table must contain an entry for your filing status AND for single, because a surviving spouse files as single. The figures shipped here are the 2026 numbers from IRS Rev. Proc. 2025-32, held constant in today's dollars."
+};
+
+/* ======================= UI STATE ======================= */
+const $ = (sel) => document.querySelector(sel);
+const state = {
+  config: RS.deepClone(DEFAULT_CONFIG),   // last loaded/saved config; widgets are the working copy
+  fields: {},                              // key -> {path, type, el, row}
+  runner: null,
+  running: false,
+  sim: null,
+  lastCharts: {},
+};
+const STORAGE_KEY = 'retirement-simulator-inputs-v1';
+
+function el(tag, attrs, ...children) {
+  const node = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (k === 'class') node.className = v;
+    else if (k === 'text') node.textContent = v;
+    else if (k.startsWith('on')) node.addEventListener(k.slice(2), v);
+    else if (v !== null && v !== undefined) node.setAttribute(k, v);
+  }
+  for (const c of children) if (c != null) node.append(c);
+  return node;
+}
+
+function helpButton(label, key, desc) {
+  return el('button', { class: 'help', type: 'button', title: `About "${label}"`, 'aria-label': `Help: ${label}`,
+    onclick: () => showHelp(label, (FIELD_HELP[key] || desc).trim()) }, '?');
+}
+
+function buildPanel(panel, sections) {
+  for (const section of sections) {
+    const h = el('h2', { class: 'section', text: section.title });
+    if (section.sub) h.append(el('small', { text: section.sub }));
+    panel.append(h);
+    for (const spec of section.rows) {
+      if (Array.isArray(spec)) addEntry(panel, { key: spec[0], path: spec[1], label: spec[2], desc: spec[3] });
+      else if (spec.check) addCheckbox(panel, spec);
+      else if (spec.select) addSelect(panel, spec);
+      else if (spec.json) addJson(panel, spec);
+    }
+  }
+}
+
+function addEntry(panel, spec) {
+  const id = 'f-' + spec.key;
+  const input = el('input', { type: 'text', id, inputmode: 'decimal', autocomplete: 'off', spellcheck: 'false' });
+  const row = el('div', { class: 'row' },
+    el('label', { for: id, text: spec.label }), input, helpButton(spec.label, spec.key, spec.desc),
+    el('div', { class: 'desc', text: spec.desc }));
+  panel.append(row);
+  state.fields[spec.key] = { path: spec.path, type: 'entry', el: input, row, label: spec.label };
+}
+
+function addSelect(panel, spec) {
+  const id = 'f-' + spec.key;
+  const sel = el('select', { id });
+  for (const opt of spec.select) sel.append(el('option', { value: opt, text: opt }));
+  const row = el('div', { class: 'row' },
+    el('label', { for: id, text: spec.label }), sel, helpButton(spec.label, spec.key, spec.desc),
+    el('div', { class: 'desc', text: spec.desc }));
+  panel.append(row);
+  state.fields[spec.key] = { path: spec.path, type: 'select', el: sel, row, label: spec.label, options: spec.select };
+}
+
+function addCheckbox(panel, spec) {
+  const id = 'f-' + spec.key;
+  const box = el('input', { type: 'checkbox', id });
+  const row = el('div', { class: 'row check' },
+    el('label', { for: id }, box, document.createTextNode(spec.label)),
+    helpButton(spec.label, spec.key, spec.desc), el('div', { class: 'desc', text: spec.desc }));
+  panel.append(row);
+  state.fields[spec.key] = { path: spec.path, type: 'check', el: box, row, label: spec.label };
+}
+
+function addJson(panel, spec) {
+  const id = 'f-' + spec.key;
+  const ta = el('textarea', { class: 'json', id, spellcheck: 'false' });
+  const row = el('div', { class: 'row wide' },
+    el('div', { class: 'row', style: 'padding:0' }, el('label', { for: id, text: spec.label }), el('div'),
+      helpButton(spec.label, spec.key, spec.desc), el('div', { class: 'desc', text: spec.desc })),
+    ta);
+  panel.append(row);
+  state.fields[spec.key] = { path: null, type: 'json', el: ta, row, label: spec.label };
+}
+
+function showHelp(title, text) {
+  $('#help-title').textContent = title;
+  $('#help-body').textContent = text;
+  const dlg = $('#help');
+  if (typeof dlg.showModal === 'function') dlg.showModal(); else alert(title + '\n\n' + text);
+}
+
+function formatValue(v) {
+  if (typeof v === 'number') return Number.isInteger(v) ? String(v) : String(v);
+  return String(v);
+}
+
+/** Push state.config into every widget (after loading a file). */
+function refreshWidgets() {
+  for (const [key, f] of Object.entries(state.fields)) {
+    f.row.classList.remove('invalid');
+    if (f.type === 'entry') f.el.value = formatValue(RS.getField(state.config, f.path));
+    else if (f.type === 'select') {
+      const v = RS.getField(state.config, f.path);
+      if (!f.options.includes(v)) f.el.append(el('option', { value: v, text: v }));
+      f.el.value = v;
+    }
+    else if (f.type === 'check') f.el.checked = Boolean(RS.getField(state.config, f.path));
+    else if (f.type === 'json') {
+      const tables = {};
+      for (const k of TAX_TABLE_KEYS) tables[k] = state.config.taxes[k];
+      f.el.value = JSON.stringify(tables, null, 2);
+    }
+  }
+}
+
+/** Widgets -> a validated Config. Throws with the offending field named. */
+function buildConfig() {
+  const config = RS.deepClone(state.config);
+  const problems = [];
+  for (const [key, f] of Object.entries(state.fields)) {
+    f.row.classList.remove('invalid');
+    try {
+      if (f.type === 'entry' || f.type === 'select') RS.setField(config, f.path, f.el.value.trim());
+      else if (f.type === 'check') RS.setField(config, f.path, f.el.checked);
+      else if (f.type === 'json') {
+        let parsed;
+        try { parsed = JSON.parse(f.el.value); } catch (e) { throw new Error(`tax tables are not valid JSON (${e.message})`); }
+        for (const k of TAX_TABLE_KEYS) {
+          if (!(k in parsed)) throw new Error(`tax tables JSON is missing "${k}"`);
+          config.taxes[k] = parsed[k];
+        }
+      }
+    } catch (e) {
+      f.row.classList.add('invalid');
+      problems.push(`${f.label}: "${f.el.value}" is invalid (${e.message.replace(/^[a-z_.]+: /, '')})`);
+    }
+  }
+  if (problems.length) throw new RS.ValidationError(problems);
+  RS.validateConfig(config);
+  return config;
+}
+
+function showError(err) {
+  const box = $('#error');
+  const text = err && err.problems ? err.problems.join('\n') : String(err && err.message || err);
+  box.textContent = text;
+  box.classList.add('show');
+}
+function clearError() { $('#error').classList.remove('show'); }
+
+function setStatus(text) { $('#status').textContent = text; }
+function setProgress(frac) { $('#progress').style.width = (Math.max(0, Math.min(1, frac)) * 100).toFixed(1) + '%'; }
+
+/* ======================= LOAD / SAVE / RESET ======================= */
+$('#btn-load').addEventListener('click', () => $('#file-input').click());
+$('#file-input').addEventListener('change', async (ev) => {
+  const file = ev.target.files && ev.target.files[0];
+  ev.target.value = '';
+  if (!file) return;
+  try {
+    const text = await file.text();
+    state.config = RS.loadConfigText(text);
+    refreshWidgets();
+    clearError();
+    $('#file-label').textContent = `Loaded: ${file.name}`;
+    persistInputs();
+  } catch (e) {
+    $('#file-label').textContent = `Could not load: ${file.name}`;
+    showError(e);
+  }
+});
+
+$('#btn-save').addEventListener('click', () => {
+  try {
+    const config = buildConfig();
+    const text = RS.saveConfigText(config);
+    state.config = config;
+    clearError();
+    downloadText('simulation_params.yaml', text);
+    $('#file-label').textContent = 'Saved: simulation_params.yaml';
+    persistInputs();
+  } catch (e) {
+    $('#file-label').textContent = 'Input error; nothing saved';
+    showError(e);
+  }
+});
+
+$('#btn-reset').addEventListener('click', () => {
+  state.config = RS.deepClone(DEFAULT_CONFIG);
+  refreshWidgets();
+  clearError();
+  $('#file-label').textContent = 'Using default values';
+  try { localStorage.removeItem(STORAGE_KEY); } catch (e) { /* ignore */ }
+});
+
+function downloadText(filename, text) {
+  const blob = new Blob([text], { type: 'text/yaml' });
+  const url = URL.createObjectURL(blob);
+  const a = el('a', { href: url, download: filename });
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+/** Remember the working inputs in this browser so a reload does not lose them. */
+function persistInputs() {
+  try {
+    const snapshot = {};
+    for (const [key, f] of Object.entries(state.fields))
+      snapshot[key] = f.type === 'check' ? f.el.checked : f.el.value;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ base: state.config, widgets: snapshot }));
+  } catch (e) { /* storage unavailable: fine */ }
+}
+function restoreInputs() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+    if (!saved || !saved.base || !saved.widgets) return false;
+    state.config = RS.configFromDict(saved.base);
+    refreshWidgets();
+    for (const [key, f] of Object.entries(state.fields)) {
+      if (!(key in saved.widgets)) continue;
+      if (f.type === 'check') f.el.checked = Boolean(saved.widgets[key]); else f.el.value = saved.widgets[key];
+    }
+    return true;
+  } catch (e) { return false; }
+}
+
+/* ======================= PARALLEL RUNNERS ======================= */
+// Simulated lives are independent, so the sweep is split across Web Workers
+// (one per CPU core). If workers cannot be created -- some browsers refuse them
+// for a file opened straight from disk -- the same chunks run on the page's own
+// thread, yielding between chunks so the progress bar keeps moving.
+const WORKER_HARNESS = `
+self.onmessage = function (e) {
+  var msg = e.data;
+  if (msg.type === 'init') {
+    self.sim = new RS.RetirementSimulator(msg.config, msg.sessionSeed);
+    self.postMessage({ type: 'ready' });
+    return;
+  }
+  if (msg.type === 'run') {
+    var out = new Array(msg.seeds.length);
+    for (var i = 0; i < msg.seeds.length; i++) {
+      var r = self.sim.simulateLife(msg.age, msg.seeds[i], msg.trajectory);
+      out[i] = msg.trajectory ? r.trajectory : [r.survived, r.minPortfolio, r.iwr, r.final];
+    }
+    self.postMessage({ type: 'done', jobId: msg.jobId, results: out });
+  }
+};`;
+
+class WorkerPool {
+  constructor(n) {
+    const src = document.getElementById('engine-src').textContent + '\n' + WORKER_HARNESS;
+    this.url = URL.createObjectURL(new Blob([src], { type: 'text/javascript' }));
+    this.workers = [];
+    this.pending = new Map();
+    this.nextJob = 1;
+    for (let i = 0; i < n; i++) {
+      const w = new Worker(this.url);
+      w.onmessage = (e) => this._onMessage(w, e.data);
+      w.onerror = (e) => this._onError(e);
+      this.workers.push(w);
+    }
+    this.idle = this.workers.slice();
+    this.queue = [];
+    this.failed = null;
+  }
+  init(config, sessionSeed) {
+    return new Promise((resolve, reject) => {
+      let ready = 0;
+      this._readyResolve = () => { if (++ready === this.workers.length) resolve(); };
+      this._initReject = reject;
+      const timer = setTimeout(() => reject(new Error('workers did not start')), 8000);
+      this._initTimer = timer;
+      for (const w of this.workers) w.postMessage({ type: 'init', config, sessionSeed });
+    }).finally(() => clearTimeout(this._initTimer));
+  }
+  _onMessage(worker, msg) {
+    if (msg.type === 'ready') { this._readyResolve && this._readyResolve(); return; }
+    if (msg.type === 'done') {
+      const job = this.pending.get(msg.jobId);
+      this.pending.delete(msg.jobId);
+      this.idle.push(worker);
+      this._pump();
+      if (job) job.resolve(msg.results);
+    }
+  }
+  _onError(e) {
+    this.failed = new Error('worker error: ' + (e.message || e));
+    if (this._initReject) this._initReject(this.failed);
+    for (const [, job] of this.pending) job.reject(this.failed);
+    this.pending.clear();
+  }
+  _pump() {
+    while (this.idle.length && this.queue.length) {
+      const worker = this.idle.pop();
+      const job = this.queue.shift();
+      this.pending.set(job.id, job);
+      worker.postMessage({ type: 'run', jobId: job.id, age: job.age, seeds: job.seeds, trajectory: job.trajectory });
+    }
+  }
+  runChunk(age, seeds, trajectory) {
+    return new Promise((resolve, reject) => {
+      if (this.failed) return reject(this.failed);
+      this.queue.push({ id: this.nextJob++, age, seeds, trajectory, resolve, reject });
+      this._pump();
+    });
+  }
+  terminate() {
+    for (const w of this.workers) w.terminate();
+    this.workers = []; this.idle = []; this.queue = [];
+    for (const [, job] of this.pending) job.reject(new Error('cancelled'));
+    this.pending.clear();
+    URL.revokeObjectURL(this.url);
+  }
+}
+
+class InlineRunner {
+  constructor() { this.cancelled = false; }
+  init(config, sessionSeed) { this.sim = new RS.RetirementSimulator(config, sessionSeed); return Promise.resolve(); }
+  async runChunk(age, seeds, trajectory) {
+    await new Promise(r => setTimeout(r, 0));
+    if (this.cancelled) throw new Error('cancelled');
+    const out = new Array(seeds.length);
+    for (let i = 0; i < seeds.length; i++) {
+      const r = this.sim.simulateLife(age, seeds[i], trajectory);
+      out[i] = trajectory ? r.trajectory : [r.survived, r.minPortfolio, r.iwr, r.final];
+    }
+    return out;
+  }
+  terminate() { this.cancelled = true; }
+}
+
+async function makeRunner(config, sessionSeed) {
+  const cores = Math.max(1, Math.min(16, (navigator.hardwareConcurrency || 4)));
+  if (typeof Worker !== 'undefined' && location.protocol !== 'about:') {
+    let pool = null;
+    try {
+      pool = new WorkerPool(cores);
+      await pool.init(config, sessionSeed);
+      return { runner: pool, label: `${cores} parallel worker${cores === 1 ? '' : 's'}` };
+    } catch (e) {
+      if (pool) { try { pool.terminate(); } catch (e2) { /* ignore */ } }
+      console.warn('Falling back to single-threaded simulation:', e);
+    }
+  }
+  const r = new InlineRunner();
+  await r.init(config, sessionSeed);
+  return { runner: r, label: 'single thread (workers unavailable)' };
+}
+
+/** Run all `seeds` for one age through the runner in chunks; onProgress(fractionDone). */
+async function runAll(runner, age, seeds, trajectory, chunks, onProgress) {
+  const chunkSize = Math.max(1, Math.ceil(seeds.length / chunks));
+  const jobs = [];
+  let done = 0;
+  for (let start = 0; start < seeds.length; start += chunkSize) {
+    const slice = seeds.slice(start, start + chunkSize);
+    jobs.push(runner.runChunk(age, slice, trajectory).then(res => {
+      done += slice.length;
+      if (onProgress) onProgress(done / seeds.length);
+      return res;
+    }));
+  }
+  const parts = await Promise.all(jobs);
+  return [].concat(...parts);
+}
+
+/* ======================= RUN ======================= */
+$('#btn-run').addEventListener('click', onRun);
+$('#btn-stop').addEventListener('click', () => {
+  if (state.runner) { state.runner.terminate(); state.runner = null; }
+  state.cancelled = true;
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && e.target && e.target.matches('.row input[type=text]') && !state.running) onRun();
+});
+
+async function onRun() {
+  if (state.running) return;
+  clearError();
+  setStatus('Validating inputs...');
+  setProgress(0);
+  let config;
+  try {
+    config = buildConfig();
+  } catch (e) {
+    setStatus('Input error');
+    showError(e);
+    return;
+  }
+  persistInputs();
+  state.running = true; state.cancelled = false;
+  $('#btn-run').disabled = true; $('#btn-stop').disabled = false;
+  const t0 = performance.now();
+  try {
+    const sim = new RS.RetirementSimulator(config);
+    const { runner, label } = await makeRunner(config, sim.sessionSeed);
+    state.runner = runner;
+    $('#cpu-label').textContent = label;
+    const ages = sim.sweepAges();
+    const runs = config.simulation.monte_carlo_runs;
+    const chunks = Math.max(4, (navigator.hardwareConcurrency || 4) * 3);
+
+    for (let i = 0; i < ages.length; i++) {
+      const age = ages[i];
+      setStatus(`Simulating age ${age} (${i + 1}/${ages.length})...`);
+      const rows = await runAll(runner, age, sim.runSeeds(age, runs), false, chunks,
+        f => setProgress((i + f) / ages.length));
+      if (state.cancelled) throw new Error('cancelled');
+      const results = rows.map(r => ({ survived: r[0], minPortfolio: r[1], iwr: r[2], final: r[3] }));
+      sim.probabilityResults[age] = RS.RetirementSimulator.summarize(results, runs);
+    }
+    setProgress(1);
+
+    let trajectory = null;
+    const result = sim.findRetirementAge();
+    if (result) {
+      setStatus(`Computing portfolio trajectory for age ${result.retirement_age}...`);
+      const n = RS.TRAJECTORY_SAMPLES;
+      const trajs = await runAll(runner, result.retirement_age, sim.runSeeds(result.retirement_age, n), true, chunks, null);
+      if (state.cancelled) throw new Error('cancelled');
+      const { ages: tAges, percentiles } = sim.trajectoryPercentiles(result.retirement_age, trajs);
+      trajectory = { ages: tAges, percentiles, retirementAge: result.retirement_age, nSamples: n };
+    }
+    runner.terminate(); state.runner = null;
+    state.sim = sim;
+    showResults(sim, config, trajectory);
+    setStatus(`Done in ${((performance.now() - t0) / 1000).toFixed(1)}s`);
+  } catch (e) {
+    if (state.runner) { try { state.runner.terminate(); } catch (e2) { /* ignore */ } state.runner = null; }
+    if (state.cancelled || (e && e.message === 'cancelled')) { setStatus('Stopped'); setProgress(0); }
+    else { setStatus('Simulation error'); showError(e); console.error(e); }
+  } finally {
+    state.running = false;
+    $('#btn-run').disabled = false; $('#btn-stop').disabled = true;
+  }
+}
+
+/* ======================= RESULTS ======================= */
+function money(x) { return '$' + RS.fmtMoney(x); }
+
+function showResults(sim, config, trajectory) {
+  const target = config.simulation.target_success_probability;
+  const result = sim.findRetirementAge();
+  const head = $('#headline');
+  head.innerHTML = '';
+  if (result) {
+    head.classList.remove('none');
+    head.append(el('div', { class: 'big', text: `Age ${result.retirement_age}` }),
+      el('div', { class: 'what' }, `Earliest retirement age meeting the `, el('b', { text: RS.fmtPct(target, 0) }),
+        ` success target, at `, el('b', { text: RS.fmtPct(result.success_probability, 1) }), ` of simulated lifetimes.`));
+  } else {
+    head.classList.add('none');
+    head.append(el('div', { class: 'big', text: '—' }),
+      el('div', { class: 'what' }, `No retirement age met the `, el('b', { text: RS.fmtPct(target, 0) }),
+        ` success target in the range tested.`));
+  }
+
+  // results table
+  const table = $('#results-table');
+  table.innerHTML = '';
+  table.append(el('thead', {}, el('tr', {},
+    el('th', { text: 'Age' }), el('th', { text: 'Success' }), el('th', { text: 'Median min in retirement' }),
+    el('th', { text: 'Median initial withdrawal' }), el('th', { text: 'Median final balance' }))));
+  const tbody = el('tbody');
+  const ages = Object.keys(sim.probabilityResults).map(Number).sort((a, b) => a - b);
+  for (const age of ages) {
+    const [prob, medMin, medWr, medFinal] = sim.probabilityResults[age];
+    const tr = el('tr', { class: (result && age === result.retirement_age ? 'earliest ' : '') + (prob >= target ? 'pass' : '') },
+      el('td', { text: String(age) }), el('td', { text: RS.fmtPct(prob, 1) }), el('td', { text: money(medMin) }),
+      el('td', { text: RS.fmtPct(medWr, 2) }), el('td', { text: money(medFinal) }));
+    tbody.append(tr);
+  }
+  table.append(tbody);
+
+  $('#report').textContent = sim.assumptionReport();
+
+  // charts
+  state.lastCharts = {};
+  state.lastCharts['chart-prob'] = probabilitySpec(sim, config);
+  const trajTab = $('#traj-tab');
+  const trajDetails = $('#traj-details');
+  if (trajectory) {
+    state.lastCharts['chart-traj'] = trajectorySpec(trajectory);
+    trajTab.hidden = false; trajDetails.hidden = false;
+    fillTrajectoryTable(trajectory);
+  } else {
+    trajTab.hidden = true; trajDetails.hidden = true;
+    delete state.lastCharts['chart-traj'];
+    selectChart('chart-prob');
+  }
+  $('#results').hidden = false;
+  drawVisibleChart();
+  $('#results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function fillTrajectoryTable(t) {
+  const table = $('#traj-table');
+  table.innerHTML = '';
+  table.append(el('thead', {}, el('tr', {}, el('th', { text: 'Age' }), el('th', { text: 'Runs alive' }),
+    el('th', { text: 'Median' }), el('th', { text: '25th pct' }), el('th', { text: '10th pct' }), el('th', { text: '1st pct' }))));
+  const tb = el('tbody');
+  const p = t.percentiles;
+  for (let i = 0; i < t.ages.length; i++) {
+    if (p.n[i] === 0) continue;
+    tb.append(el('tr', { class: p.n[i] < RS.MIN_TRAJECTORY_SAMPLES ? 'thin' : '' },
+      el('td', { text: String(t.ages[i]) }), el('td', { text: String(p.n[i]) }),
+      el('td', { text: money(p[50][i]) }), el('td', { text: money(p[25][i]) }),
+      el('td', { text: money(p[10][i]) }), el('td', { text: money(p[1][i]) })));
+  }
+  table.append(tb);
+}
+
+/* ======================= CHART SPECS ======================= */
+function cssVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+
+function probabilitySpec(sim, config) {
+  const ages = Object.keys(sim.probabilityResults).map(Number).sort((a, b) => a - b);
+  const probs = ages.map(a => sim.probabilityResults[a][0]);
+  const target = config.simulation.target_success_probability;
+  const result = sim.findRetirementAge();
+  return {
+    title: 'Retirement Success Probability by Age',
+    xLabel: 'Retirement Age', yLabel: 'Success Probability',
+    x: ages, yMin: 0, yMax: 1.05,
+    yFormat: v => RS.fmtPct(v, 0), tipFormat: v => RS.fmtPct(v, 1),
+    series: [{ label: 'Success probability', values: probs, color: cssVar('--series-1'), width: 2, markers: true }],
+    hlines: [{ y: target, color: cssVar('--target'), dash: [6, 4], label: `Target (${RS.fmtPct(target, 0)})` }],
+    vlines: result ? [{ x: result.retirement_age, color: cssVar('--earliest'), dash: [2, 4], label: `Earliest: age ${result.retirement_age}` }] : [],
+    note: '',
+  };
+}
+
+function trajectorySpec(t) {
+  const p = t.percentiles;
+  const plottable = p.n.map(n => n >= RS.MIN_TRAJECTORY_SAMPLES);
+  const series = (key) => p[key].map((v, i) => plottable[i] ? v / 1e6 : NaN);
+  const m = series(50), p25 = series(25), p10 = series(10), p1 = series(1);
+  let last = t.retirementAge;
+  for (let i = 0; i < t.ages.length; i++) if (plottable[i]) last = t.ages[i];
+  return {
+    title: `Portfolio Value in Retirement — Retiring at ${t.retirementAge} (${t.nSamples.toLocaleString()} simulations)`,
+    xLabel: `Age  (shown to ${last}, while at least ${RS.MIN_TRAJECTORY_SAMPLES} runs are still alive)`,
+    yLabel: 'Portfolio Value ($M)',
+    x: t.ages, yMin: 0,
+    yFormat: v => '$' + v.toFixed(1) + 'M', tipFormat: v => '$' + v.toFixed(2) + 'M',
+    series: [
+      { label: 'Median (50th)', values: m, color: cssVar('--series-1'), width: 2 },
+      { label: '25th percentile', values: p25, color: cssVar('--series-2'), width: 1.5, dash: [6, 4] },
+      { label: '10th percentile', values: p10, color: cssVar('--series-3'), width: 1.5, dash: [6, 4] },
+      { label: '1st percentile', values: p1, color: cssVar('--series-4'), width: 1.5, dash: [2, 3] },
+    ],
+    bands: [
+      { lower: p10, upper: m, color: cssVar('--series-1'), alpha: 0.08 },
+      { lower: p1, upper: p10, color: cssVar('--series-4'), alpha: 0.08 },
+    ],
+    hlines: [{ y: 0, color: cssVar('--text-2'), width: 0.5 }],
+    vlines: [{ x: t.retirementAge, color: cssVar('--earliest'), dash: [2, 4] }],
+    extra: p.n,
+    extraLabel: 'Runs alive',
+    note: `Later ages rest on progressively fewer still-alive runs. Columns backed by fewer than ${RS.MIN_TRAJECTORY_SAMPLES} runs are omitted from the chart (they are listed in the data table below).`,
+  };
+}
+
+/* ======================= CANVAS LINE CHART ======================= */
+function niceTicks(min, max, count) {
+  const span = max - min;
+  if (!(span > 0)) return [min];
+  const rough = span / count;
+  const mag = Math.pow(10, Math.floor(Math.log10(rough)));
+  const norm = rough / mag;
+  const step = (norm < 1.5 ? 1 : norm < 3 ? 2 : norm < 7 ? 5 : 10) * mag;
+  const ticks = [];
+  for (let v = Math.ceil(min / step) * step; v <= max + 1e-9; v += step) ticks.push(Number(v.toFixed(10)));
+  return ticks;
+}
+
+function drawChart(box, spec) {
+  const canvas = box.querySelector('canvas');
+  const tip = box.querySelector('.tooltip');
+  const dpr = window.devicePixelRatio || 1;
+  const W = box.clientWidth, H = box.clientHeight;
+  if (W === 0 || H === 0) return;
+  canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  const text = cssVar('--text'), text2 = cssVar('--text-2'), grid = cssVar('--grid'), surface = cssVar('--surface');
+  const font = '12px ' + cssVar('--sans');
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = surface; ctx.fillRect(0, 0, W, H);
+
+  const legendItems = spec.series.map(s => ({ label: s.label, color: s.color, dash: s.dash, width: s.width }))
+    .concat((spec.hlines || []).filter(h => h.label).map(h => ({ label: h.label, color: h.color, dash: h.dash, width: 1.5 })))
+    .concat((spec.vlines || []).filter(v => v.label).map(v => ({ label: v.label, color: v.color, dash: v.dash, width: 1.5 })));
+  const xs = spec.x;
+  const xMin = xs[0], xMax = xs[xs.length - 1] === xMin ? xMin + 1 : xs[xs.length - 1];
+  let yMax = spec.yMax, yMin = spec.yMin;
+  if (yMax === undefined) {
+    let m = -Infinity;
+    for (const s of spec.series) for (const v of s.values) if (Number.isFinite(v)) m = Math.max(m, v);
+    for (const h of spec.hlines || []) m = Math.max(m, h.y);
+    yMax = Number.isFinite(m) ? m * 1.05 : 1;
+    if (yMax <= yMin) yMax = yMin + 1;
+  }
+  // Left margin sized from the widest tick label so the axis title never collides.
+  ctx.font = font;
+  const yTicks = niceTicks(yMin, yMax, 6);
+  const tickWidth = Math.max(...yTicks.map(t => ctx.measureText(spec.yFormat(t)).width));
+  const margin = { top: 52, right: 18, bottom: 48, left: Math.ceil(tickWidth) + 40 };
+  const pw = W - margin.left - margin.right, ph = H - margin.top - margin.bottom;
+  const sx = x => margin.left + (x - xMin) / (xMax - xMin) * pw;
+  const sy = y => margin.top + ph - (y - yMin) / (yMax - yMin) * ph;
+
+  // title
+  ctx.fillStyle = text; ctx.font = '600 13px ' + cssVar('--sans'); ctx.textBaseline = 'top'; ctx.textAlign = 'left';
+  ctx.fillText(spec.title, margin.left, 10);
+
+  // legend row
+  ctx.font = font; ctx.textBaseline = 'middle';
+  let lx = margin.left, ly = 36;
+  for (const item of legendItems) {
+    ctx.strokeStyle = item.color; ctx.lineWidth = item.width || 2; ctx.setLineDash(item.dash || []);
+    ctx.beginPath(); ctx.moveTo(lx, ly); ctx.lineTo(lx + 18, ly); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = text2; ctx.fillText(item.label, lx + 24, ly);
+    lx += 24 + ctx.measureText(item.label).width + 18;
+    if (lx > W - 60) { lx = margin.left; ly += 16; }
+  }
+
+  // grid + axes
+  ctx.strokeStyle = grid; ctx.lineWidth = 1; ctx.setLineDash([]);
+  ctx.fillStyle = text2; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  for (const t of yTicks) {
+    const y = Math.round(sy(t)) + 0.5;
+    ctx.beginPath(); ctx.moveTo(margin.left, y); ctx.lineTo(margin.left + pw, y); ctx.stroke();
+    ctx.fillText(spec.yFormat(t), margin.left - 8, y);
+  }
+  const xStep = xs.length > 40 ? 10 : xs.length > 16 ? 5 : xs.length > 8 ? 2 : 1;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  for (const x of xs) {
+    if (x % xStep !== 0) continue;
+    const px = Math.round(sx(x)) + 0.5;
+    ctx.strokeStyle = grid; ctx.beginPath(); ctx.moveTo(px, margin.top); ctx.lineTo(px, margin.top + ph); ctx.stroke();
+    ctx.fillStyle = text2; ctx.fillText(String(x), px, margin.top + ph + 6);
+  }
+  ctx.strokeStyle = cssVar('--border-strong');
+  ctx.beginPath(); ctx.moveTo(margin.left + 0.5, margin.top); ctx.lineTo(margin.left + 0.5, margin.top + ph + 0.5); ctx.lineTo(margin.left + pw, margin.top + ph + 0.5); ctx.stroke();
+
+  // axis labels
+  ctx.fillStyle = text2; ctx.font = font; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+  ctx.fillText(spec.xLabel, margin.left + pw / 2, H - 6);
+  ctx.save(); ctx.translate(14, margin.top + ph / 2); ctx.rotate(-Math.PI / 2); ctx.textBaseline = 'top';
+  ctx.fillText(spec.yLabel, 0, 0); ctx.restore();
+
+  // clip to plot
+  ctx.save(); ctx.beginPath(); ctx.rect(margin.left, margin.top, pw, ph); ctx.clip();
+
+  // bands
+  for (const b of spec.bands || []) {
+    ctx.fillStyle = hexToRgba(b.color, b.alpha);
+    let run = [];
+    const flush = () => {
+      if (run.length < 2) { run = []; return; }
+      ctx.beginPath();
+      run.forEach((i, k) => { const px = sx(xs[i]), py = sy(b.upper[i]); k === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py); });
+      for (let k = run.length - 1; k >= 0; k--) ctx.lineTo(sx(xs[run[k]]), sy(b.lower[run[k]]));
+      ctx.closePath(); ctx.fill(); run = [];
+    };
+    for (let i = 0; i < xs.length; i++) {
+      if (Number.isFinite(b.upper[i]) && Number.isFinite(b.lower[i])) run.push(i); else flush();
+    }
+    flush();
+  }
+
+  // reference lines
+  for (const h of spec.hlines || []) {
+    ctx.strokeStyle = h.color; ctx.lineWidth = h.width || 1.5; ctx.setLineDash(h.dash || []);
+    const y = sy(h.y); ctx.beginPath(); ctx.moveTo(margin.left, y); ctx.lineTo(margin.left + pw, y); ctx.stroke();
+  }
+  for (const v of spec.vlines || []) {
+    ctx.strokeStyle = v.color; ctx.lineWidth = v.width || 1.5; ctx.setLineDash(v.dash || []);
+    const x = sx(v.x); ctx.beginPath(); ctx.moveTo(x, margin.top); ctx.lineTo(x, margin.top + ph); ctx.stroke();
+  }
+  ctx.setLineDash([]);
+
+  // series
+  for (const s of spec.series) {
+    ctx.strokeStyle = s.color; ctx.lineWidth = s.width || 2; ctx.setLineDash(s.dash || []);
+    ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    ctx.beginPath(); let pen = false;
+    for (let i = 0; i < xs.length; i++) {
+      const v = s.values[i];
+      if (!Number.isFinite(v)) { pen = false; continue; }
+      const px = sx(xs[i]), py = sy(v);
+      if (!pen) { ctx.moveTo(px, py); pen = true; } else ctx.lineTo(px, py);
+    }
+    ctx.stroke(); ctx.setLineDash([]);
+    if (s.markers) {
+      for (let i = 0; i < xs.length; i++) {
+        const v = s.values[i]; if (!Number.isFinite(v)) continue;
+        ctx.beginPath(); ctx.arc(sx(xs[i]), sy(v), 3.5, 0, Math.PI * 2);
+        ctx.fillStyle = s.color; ctx.fill(); ctx.strokeStyle = surface; ctx.lineWidth = 1.5; ctx.stroke();
+      }
+    }
+  }
+  ctx.restore();
+
+  // hover layer
+  box._hover = { xs, sx, sy, margin, pw, ph, spec, tip };
+  if (!box._hoverBound) {
+    box._hoverBound = true;
+    box.addEventListener('mousemove', onChartHover);
+    box.addEventListener('mouseleave', () => { box.querySelector('.tooltip').style.display = 'none'; drawChart(box, box._hover.spec); });
+  }
+}
+
+function hexToRgba(hex, alpha) {
+  const m = hex.replace('#', '');
+  const n = m.length === 3 ? m.split('').map(c => c + c).join('') : m;
+  const r = parseInt(n.slice(0, 2), 16), g = parseInt(n.slice(2, 4), 16), b = parseInt(n.slice(4, 6), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+function onChartHover(ev) {
+  const box = ev.currentTarget, h = box._hover;
+  if (!h) return;
+  const rect = box.getBoundingClientRect();
+  const mx = ev.clientX - rect.left, my = ev.clientY - rect.top;
+  if (mx < h.margin.left || mx > h.margin.left + h.pw || my < h.margin.top || my > h.margin.top + h.ph) {
+    h.tip.style.display = 'none'; return;
+  }
+  let best = 0, bestD = Infinity;
+  for (let i = 0; i < h.xs.length; i++) { const d = Math.abs(h.sx(h.xs[i]) - mx); if (d < bestD) { bestD = d; best = i; } }
+  const spec = h.spec;
+  const rows = [];
+  for (const s of spec.series) {
+    const v = s.values[best];
+    rows.push(`<div class="r"><span><span class="sw" style="background:${s.color}"></span>${s.label}</span><span>${Number.isFinite(v) ? spec.tipFormat(v) : '—'}</span></div>`);
+  }
+  if (spec.extra) rows.push(`<div class="r"><span>${spec.extraLabel}</span><span>${spec.extra[best].toLocaleString()}</span></div>`);
+  h.tip.innerHTML = `<div class="t">Age ${h.xs[best]}</div>${rows.join('')}`;
+  h.tip.style.display = 'block';
+  const tw = h.tip.offsetWidth, th = h.tip.offsetHeight;
+  let left = h.sx(h.xs[best]) + 12, top = my - th / 2;
+  if (left + tw > box.clientWidth - 6) left = h.sx(h.xs[best]) - tw - 12;
+  top = Math.max(6, Math.min(box.clientHeight - th - 6, top));
+  h.tip.style.left = left + 'px'; h.tip.style.top = top + 'px';
+
+  // crosshair: redraw base then overlay
+  drawChart(box, spec);
+  const canvas = box.querySelector('canvas'), ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const hh = box._hover;
+  const px = hh.sx(hh.xs[best]);
+  ctx.strokeStyle = cssVar('--text-3'); ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
+  ctx.beginPath(); ctx.moveTo(px, hh.margin.top); ctx.lineTo(px, hh.margin.top + hh.ph); ctx.stroke(); ctx.setLineDash([]);
+  for (const s of spec.series) {
+    const v = s.values[best]; if (!Number.isFinite(v)) continue;
+    ctx.beginPath(); ctx.arc(px, hh.sy(v), 4.5, 0, Math.PI * 2);
+    ctx.fillStyle = s.color; ctx.fill(); ctx.strokeStyle = cssVar('--surface'); ctx.lineWidth = 2; ctx.stroke();
+  }
+  box._hover = hh;
+}
+
+function selectChart(id) {
+  for (const b of document.querySelectorAll('#chart-tabs button')) b.setAttribute('aria-selected', b.dataset.chart === id ? 'true' : 'false');
+  for (const box of document.querySelectorAll('.chart-box')) box.hidden = box.id !== id;
+  const spec = state.lastCharts[id];
+  $('#chart-note').textContent = spec && spec.note ? spec.note : '';
+  drawVisibleChart();
+}
+function drawVisibleChart() {
+  for (const box of document.querySelectorAll('.chart-box')) {
+    if (box.hidden) continue;
+    const spec = state.lastCharts[box.id];
+    if (spec) drawChart(box, spec);
+  }
+}
+$('#chart-tabs').addEventListener('click', (e) => {
+  const b = e.target.closest('button'); if (b) selectChart(b.dataset.chart);
+});
+window.addEventListener('resize', drawVisibleChart);
+if (window.matchMedia) window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', drawVisibleChart);
+
+/* ======================= TABS & HELP ======================= */
+for (const b of document.querySelectorAll('.tabs button')) {
+  b.addEventListener('click', () => {
+    for (const other of document.querySelectorAll('.tabs button')) other.setAttribute('aria-selected', other === b ? 'true' : 'false');
+    for (const p of document.querySelectorAll('.panel')) p.hidden = p.id !== b.dataset.panel;
+  });
+}
+$('#help-close').addEventListener('click', () => $('#help').close());
+$('#help').addEventListener('click', (e) => { if (e.target === e.currentTarget) e.currentTarget.close(); });
+
+/* ======================= BOOT ======================= */
+buildPanel($('#panel-common'), COMMON_SECTIONS);
+buildPanel($('#panel-advanced'), ADVANCED_SECTIONS);
+refreshWidgets();
+if (restoreInputs()) $('#file-label').textContent = 'Restored your previous inputs from this browser';
+$('#cpu-label').textContent = (navigator.hardwareConcurrency ? `${navigator.hardwareConcurrency} CPU cores available` : '');
+</script>
+</body>
+</html>
