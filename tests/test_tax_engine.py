@@ -252,6 +252,35 @@ def test_rule_of_55_window(base_cfg):
     assert at53["early_penalty"] == pytest.approx(1_000.0)
 
 
+def test_rule_of_55_requires_separating_at_55_or_later(base_cfg):
+    """The exception is about WHEN you left the job: separating at 45 does not
+    make a withdrawal at 56 penalty-free, separating at 55 does."""
+    cfg = copy.deepcopy(base_cfg)
+    cfg.taxes.assume_qualified_plan_age55_exception = True
+    calc = TaxCalculator(cfg.taxes)
+    left_at_45 = calc.tax_breakdown(10_000, 0, 0, 0, "single", 56,
+                                    traditional_withdrawal=10_000, separation_age=45)
+    left_at_55 = calc.tax_breakdown(10_000, 0, 0, 0, "single", 56,
+                                    traditional_withdrawal=10_000, separation_age=55)
+    assert left_at_45["early_penalty"] == pytest.approx(1_000.0)
+    assert left_at_55["early_penalty"] == pytest.approx(0.0)
+
+
+def test_state_tax_excludes_social_security(tax):
+    """Single, 70, $30k ordinary + $40k SS.
+
+    provisional = 30,000 + 20,000 = 50,000 > 34,000
+    taxable SS = min(0.85 x 16,000 + 4,500, 34,000) = 18,100
+    deduction = 18,150; federal taxable = 30,000 + 18,100 - 18,150 = 29,950
+    federal = 12,400 x 10% + 17,550 x 12% = 1,240 + 2,106 = 3,346
+    state   = 5% x (30,000 - 18,150) = 592.50  -- SS is NOT in the state base
+    """
+    bd = tax.tax_breakdown(30_000, 0, 40_000, 0, "single", 70)
+    assert bd["taxable_social_security"] == pytest.approx(18_100.0)
+    assert bd["federal_ordinary"] == pytest.approx(3_346.0)
+    assert bd["state"] == pytest.approx(592.50)
+
+
 # ---------------------------------------------------------------- consistency
 def test_breakdown_sums_to_total(tax):
     """The itemised breakdown must reconcile with total_tax exactly."""

@@ -163,7 +163,9 @@ as the accuracy of one.
   delayed credits at **8% per year simple** (factor 1.24 at 70, not 1.08³)
 - Optional **spouse**: own-record benefit vs the 50% spousal benefit (with its own,
   steeper early-claim schedule and no delayed credits), survivor step-up to the
-  larger benefit on the first death, and reduced household spending for the survivor
+  larger benefit on the first death (with SSA's survivor-age reduction when the
+  survivor's claim age is below 67, and the 82.5%-of-PIA widow(er)'s limit), and
+  reduced household spending for the survivor
 
 **Life and spending**
 - Mortality per person, two models: `ssa_inspired` — a Gompertz hazard calibrated to
@@ -205,9 +207,15 @@ year as `percentiles["n"]`.
 Worth understanding before you act on a number:
 
 - **Returns are independent month to month.** Real markets mean-revert somewhat at
-  multi-year horizons, which thins the left tail. This model produces roughly 1.3-1.5x
-  the historical frequency of large one-year losses. That is conservative, but it is
-  why this will give a lower success rate than historical-sequence tools like cFIREsim.
+  multi-year horizons, which thins the left tail. At the default settings the model's
+  frequency of large one-year losses matches history (a real return below -20% in
+  about 8% of years); what it lacks is the multi-year mean reversion, so bad decades
+  are more likely than in the record. That is conservative, and it is why this will
+  give a lower success rate than historical-sequence tools like cFIREsim.
+- **The configured stock return is a geometric (compound) return.** The generator's
+  median compounded growth matches `stock_return`; its arithmetic average is higher
+  by about half the variance (roughly 10% nominal for an 8% input at the default
+  volatility). Enter a CAGR, not an arithmetic average.
 - **Sequence-of-returns risk is approximated**, not replayed from history. The regime
   model reproduces crash frequency, duration and volatility, but a specific historical
   path (1966, 2000) may still be worse than anything it generates.
@@ -224,7 +232,16 @@ Worth understanding before you act on a number:
   stocks in taxable) would beat the modelled outcome slightly — conservative.
 - **Accumulation-phase dividends are assumed taxed from salary**, not from the
   account; the annual dividend/interest tax drag applies in retirement.
-- **State tax is a flat rate.** No brackets, no retirement-income exclusions.
+- **State tax is a flat rate** on federal AGI less the standard deduction and less
+  Social Security (most states exempt it). No brackets, no other retirement-income
+  exclusions.
+- **Roth withdrawals are treated as tax-free at any age.** Before 59.5 only
+  contributions come out free; earnings are taxed and penalised, and the model tracks
+  no Roth basis. This matters only when the cash, brokerage and traditional rungs
+  are exhausted before 59.5 -- rare with a normal account mix.
+- **Medical inflation above CPI applies only after `spending_decline_end_age`.**
+  Pre-Medicare premiums are held flat in real terms until then, which understates
+  them for someone retiring in their 40s.
 - Stocks are treated as inflation-neutral in the long run; inflation surprises are
   applied only to bonds and cash.
 - The 72(t) flag waives the penalty but does not enforce a SEPP schedule; the

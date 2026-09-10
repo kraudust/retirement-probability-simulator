@@ -521,8 +521,7 @@ function validateConfig(c) {
 
   for (const name of ['roth', 'traditional', 'brokerage', 'cash'])
     if (c.accounts[name] < 0) errors.push(`accounts.${name} must be non-negative`);
-  if (!(c.accounts.brokerage_cost_basis >= 0 && c.accounts.brokerage_cost_basis <= c.accounts.brokerage + 1e-9))
-    errors.push('brokerage_cost_basis must be between 0 and the brokerage balance');
+  if (c.accounts.brokerage_cost_basis < 0) errors.push('brokerage_cost_basis must be non-negative');
 
   for (const name of ['annual_roth', 'annual_traditional', 'annual_brokerage', 'annual_cash'])
     if (c.contributions[name] < 0) errors.push(`contributions.${name} must be non-negative`);
@@ -699,7 +698,7 @@ class TaxCalculator {
     return Math.min(0.85 * (provisional - t2) + tier1, this.cfg.ss_max_taxable_fraction * ss);
   }
 
-  taxBreakdown(ordinary, gains, ss, investmentIncome, status, age, traditionalWithdrawal, spouseAge) {
+  taxBreakdown(ordinary, gains, ss, investmentIncome, status, age, traditionalWithdrawal, spouseAge, separationAge) {
     traditionalWithdrawal = traditionalWithdrawal || 0.0;
     const taxableSs = this.taxableSocialSecurity(ss, ordinary + gains, status);
     const agi = ordinary + gains + taxableSs;
@@ -710,14 +709,17 @@ class TaxCalculator {
     const federalOrdinary = TaxCalculator.bracketTax(taxableOrdinary, this.federalBrackets(status));
     const ltcg = this.ltcgBrackets(status);
     const federalLtcg = TaxCalculator.bracketTax(taxableTotal, ltcg) - TaxCalculator.bracketTax(taxableOrdinary, ltcg);
-    const state = this.cfg.state_tax_rate * Math.max(0.0, agi - standard);
+    // Flat state rate on the federal base LESS Social Security: most states exempt SS.
+    const state = this.cfg.state_tax_rate * Math.max(0.0, ordinary + gains - standard);
     const niitBase = Math.min(Math.max(agi - this.niitThreshold(status), 0.0), Math.max(investmentIncome, 0.0));
     const niit = this.cfg.niit_rate * niitBase;
 
     let penalty = 0.0;
     if (traditionalWithdrawal > 0 && age < this.cfg.penalty_free_age) {
       let penaltyFree = this.cfg.use_72t_sepp;
-      if (this.cfg.assume_qualified_plan_age55_exception && age >= 55) penaltyFree = true;
+      // Rule of 55 keys off WHEN you left the job (in or after the year you turn 55).
+      const separatedLateEnough = separationAge == null || separationAge >= 55;
+      if (this.cfg.assume_qualified_plan_age55_exception && age >= 55 && separatedLateEnough) penaltyFree = true;
       if (!penaltyFree) penalty = this.cfg.early_withdrawal_penalty * traditionalWithdrawal;
     }
     return {
@@ -727,9 +729,9 @@ class TaxCalculator {
     };
   }
 
-  totalTax(ordinary, gains, ss, investmentIncome, status, age, traditionalWithdrawal, spouseAge) {
+  totalTax(ordinary, gains, ss, investmentIncome, status, age, traditionalWithdrawal, spouseAge, separationAge) {
     return this.taxBreakdown(ordinary, gains, ss, investmentIncome, status, age,
-                             traditionalWithdrawal, spouseAge).total;
+                             traditionalWithdrawal, spouseAge, separationAge).total;
   }
 }
 
@@ -822,12 +824,27 @@ class RetirementSimulator {
     return Math.max(0.0, 1 - reduction);
   }
 
-  static ssSurvivorFactor(claimAge, deathAge, fra) {
+  /** SSA's reduction for a survivor starting the widow(er)'s benefit before their
+   *  own FRA: 28.5% at 60, prorated per month to FRA; no delayed credits. */
+  static ssSurvivorClaimFactor(survivorClaimAge, fra) {
     fra = fra == null ? 67 : fra;
-    if (deathAge >= claimAge)
-      return Math.max(RetirementSimulator.ssBenefitFactor(claimAge, fra), SS_WIDOW_LIMIT_FRACTION);
+    const monthsEarly = Math.max(0.0, (fra - survivorClaimAge) * 12);
+    const months60ToFra = Math.max(1.0, (fra - 60) * 12);
+    return Math.max(0.0, 1.0 - 0.285 * Math.min(1.0, monthsEarly / months60ToFra));
+  }
+
+  /** Factor on the deceased's FRA benefit that a survivor receives. The widow(er)'s
+   *  limit CAPS the survivor-age-reduced benefit; delayed credits carry over. */
+  static ssSurvivorFactor(claimAge, deathAge, fra, survivorClaimAge) {
+    fra = fra == null ? 67 : fra;
+    const ageFactor = survivorClaimAge == null ? 1.0 : RetirementSimulator.ssSurvivorClaimFactor(survivorClaimAge, fra);
+    if (deathAge >= claimAge) {
+      const deceased = RetirementSimulator.ssBenefitFactor(claimAge, fra);
+      if (deceased < 1.0) return Math.min(ageFactor, Math.max(deceased, SS_WIDOW_LIMIT_FRACTION));
+      return deceased * ageFactor;
+    }
     const monthsLate = Math.max(0.0, Math.min(deathAge, 70.0) - fra) * 12;
-    return 1.0 + (2 / 3 * 0.01) * monthsLate;
+    return (1.0 + (2 / 3 * 0.01) * monthsLate) * ageFactor;
   }
 
   static ssSpousalFactor(claimAge, fra) {
@@ -955,7 +972,7 @@ class RetirementSimulator {
   }
 
   annualWithdrawalPlan(netNeed, balances, brokerageBasis, householdAge, status, ssIncome,
-                       stockAlloc, bondAlloc, rmdAmount, spouseAge) {
+                       stockAlloc, bondAlloc, rmdAmount, spouseAge, separationAge) {
     let [cash, brokerage, traditional, roth] = balances;
     rmdAmount = Math.min(rmdAmount, traditional);
 
@@ -977,7 +994,7 @@ class RetirementSimulator {
       const gains = baseGains + takes.realized_gain;
       const investment = baseInvestmentIncome + takes.realized_gain;
       const t = tax.totalTax(ordinary, gains, ssIncome, investment, status, householdAge,
-                             rmdAmount + takes.traditional, spouseAge);
+                             rmdAmount + takes.traditional, spouseAge, separationAge);
       return [takes, t, rmdAmount + extra - t];
     };
 
@@ -1058,7 +1075,7 @@ class RetirementSimulator {
     let roth = Number(cfg.accounts.roth);
     let traditional = Number(cfg.accounts.traditional);
     let brokerage = Number(cfg.accounts.brokerage);
-    let brokerageBasis = Math.min(Number(cfg.accounts.brokerage_cost_basis), brokerage);
+    let brokerageBasis = Number(cfg.accounts.brokerage_cost_basis);   // may exceed the balance (underwater)
     let cash = Number(cfg.accounts.cash);
     let spendingCash = 0.0;
 
@@ -1071,10 +1088,14 @@ class RetirementSimulator {
     const primarySsAnnual = this.primarySsIncome(retirementAge, primaryWorkYears);
     const spouseSsAnnual = this.spouseSsIncome(retirementAge, primaryWorkYears, spouseWorkYears);
 
-    const primarySurvivorAnnual = this.ssFraBenefit(cfg.life_events, primaryWorkYears)
-      * RetirementSimulator.ssSurvivorFactor(cfg.life_events.ss_claim_age, deathAge);
+    // Each survivor benefit is also reduced for the SURVIVOR's own claim age.
+    const primarySurvivorAnnual = sp.enabled
+      ? this.ssFraBenefit(cfg.life_events, primaryWorkYears)
+        * RetirementSimulator.ssSurvivorFactor(cfg.life_events.ss_claim_age, deathAge, null, sp.ss_claim_age)
+      : 0.0;
     const spouseSurvivorAnnual = sp.enabled
-      ? this.ssFraBenefit(sp, spouseWorkYears) * RetirementSimulator.ssSurvivorFactor(sp.ss_claim_age, spouseDeathOwn)
+      ? this.ssFraBenefit(sp, spouseWorkYears)
+        * RetirementSimulator.ssSurvivorFactor(sp.ss_claim_age, spouseDeathOwn, null, cfg.life_events.ss_claim_age)
       : 0.0;
 
     const glideYears = Math.max(cfg.simulation.glide_path_years, 1);
@@ -1189,7 +1210,8 @@ class RetirementSimulator {
           const plan = this.annualWithdrawalPlan(
             netNeed, [cash, brokerage, traditional, roth], brokerageBasis,
             householdAge, status, ssTotal, stockAlloc, bondAlloc, rmdAmount,
-            primaryAlive ? spouseAge : null);
+            primaryAlive ? spouseAge : null,
+            retirementAge);   // rule of 55 keys off when the job ended
 
           if (plan === null) return broke();
 
@@ -1345,11 +1367,16 @@ class RetirementSimulator {
     const f = this.crisisFraction;
     const realStock = this.realReturn(m.stock_return);
     const effLog = (this.regimes.normal.return_boost * (1 - f) + this.regimes.crisis.return_boost * f) * 12 + Math.log1p(realStock);
-    const within = (1 - f) * m.stock_volatility ** 2 + f * (m.stock_volatility * sim.crisis_regime.volatility_multiplier) ** 2;
-    const between = f * (1 - f) * (this.regimes.normal.return_boost - this.regimes.crisis.return_boost) ** 2 * 12;
-    const effVol = Math.sqrt(within + between);
     const pEnter = sim.normal_regime.monthly_crisis_probability;
     const pExit = sim.crisis_regime.monthly_recovery_probability;
+    // Regimes persist within a year, so the between-regime variance of a 12-month
+    // sum is f(1-f) delta^2 [12 + 2 sum_{k=1}^{11} (12-k) rho^k], rho = 1 - pEnter - pExit.
+    const within = (1 - f) * m.stock_volatility ** 2 + f * (m.stock_volatility * sim.crisis_regime.volatility_multiplier) ** 2;
+    const rho = 1 - pEnter - pExit;
+    let persistence = 12; for (let k = 1; k <= 11; k++) persistence += 2 * (12 - k) * Math.pow(rho, k);
+    const delta = this.regimes.normal.return_boost - this.regimes.crisis.return_boost;
+    const between = f * (1 - f) * delta ** 2 * persistence;
+    const effVol = Math.sqrt(within + between);
 
     const out = [
       '  EFFECTIVE ASSUMPTIONS (what the simulation actually uses)',
@@ -2134,12 +2161,12 @@ const FIELD_HELP = {
  "guard_raise_amt": "How much you increase spending after a good year. 1.05\nmeans 5% more.",
  "guard_raise_ceil": "The most you would ever raise spending to, as a share\nof plan. 1.30 means never more than 130% of the original plan.",
  "filing_status": "Your tax filing status: single, married_filing_jointly,\nhead_of_household, or qualifying_surviving_spouse.\n\nImportant: this is separate from the \"model a spouse\" tick box. Turning spouse\nmodelling off does NOT make you a single filer. This box controls the tax\nbrackets; that box controls whether a second person's lifespan and benefit are\nsimulated.",
- "state_tax": "Your state income tax rate as a decimal. Use 0.0 for states\nwith no income tax (Texas, Florida, Washington, Nevada, Tennessee and others).\n\nThis is a flat approximation -- the app does not model state brackets or state\nretirement-income exclusions, which many states offer. If your state has them,\nyour real tax will be lower than modelled.",
+ "state_tax": "Your state income tax rate as a decimal. Use 0.0 for states\nwith no income tax (Texas, Florida, Washington, Nevada, Tennessee and others).\n\nThis is a flat approximation applied to income other than Social Security --\nmost states do not tax Social Security, and the app follows that. It does not\nmodel state brackets or the other retirement-income exclusions many states\noffer. If your state has them, your real tax will be lower than modelled.",
  "early_penalty": "The extra tax on pre-tax retirement withdrawals taken\ntoo early. 0.10 (10%) is current law.",
  "penalty_age": "The age the early withdrawal penalty stops applying. 59.5\nunder current law.",
  "niit_rate": "A 3.8% surtax on investment income for high earners. Rarely\napplies at modest retirement spending, but it is real law and cheap to model\nexactly.",
  "use_72t": "Tick if you plan to use a Rule 72(t) withdrawal schedule or a\nRoth conversion ladder -- both legally avoid the 10% early penalty.\n\nBoth take genuine planning and commitment to set up, so leaving this unticked is\nthe cautious choice. Withdrawals are still taxed as income either way.",
- "age55_exception": "Tick only if the money in your pre-tax bucket is\ngenuinely in an employer 401k/403b that you will leave in the plan.\n\nThe \"rule of 55\" lets you take from an employer plan penalty-free if you leave\nthat job in or after the year you turn 55. IRAs never qualify -- if you have\nrolled everything into an IRA, leave this unticked.",
+ "age55_exception": "Tick only if the money in your pre-tax bucket is\ngenuinely in an employer 401k/403b that you will leave in the plan.\n\nThe \"rule of 55\" lets you take from an employer plan penalty-free if you leave\nthat job in or after the year you turn 55, so the app only applies it for\nretirement ages of 55 and up. IRAs never qualify -- if you have rolled\neverything into an IRA, leave this unticked.",
  "rmd_start_age": "The age the IRS forces you to start withdrawing from\npre-tax accounts, whether you need the money or not.\n\nUnder current law: 73 if you were born 1951-1959, 75 if born 1960 or later.",
  "mortality_model": "How the app decides how long you live.\n\n\"ssa_inspired\" draws a realistic range of lifespans from actuarial data -- some\nruns end in your 60s, a few past 100. This is the honest choice, because living\na long time is itself a financial risk.\n\n\"normal\" lets you dictate the range by hand with the four boxes below, useful\nfor a \"what if I plan to exactly 95\" test.",
  "mortality_sex": "male or female, used to pick the right mortality table.\nWomen live meaningfully longer on average, so this changes the answer.",
@@ -2149,7 +2176,7 @@ const FIELD_HELP = {
  "death_max": "The oldest possible age. This applies to BOTH models, and it\nalso sets how far the portfolio chart runs.",
  "spouse_enabled": "Tick to model a second person.\n\nThis changes several things at once: household spending drops after the first\ndeath, the survivor inherits the larger of the two Social Security benefits, and\nthe survivor starts filing taxes as single -- half the standard deduction and\ntighter brackets. That last effect is a real and often-missed hit to a widowed\nhousehold's income.",
  "spouse_age_offset": "Your spouse's age relative to yours. -2 means they\nare two years younger; +3 means three years older.",
- "spouse_ss_claim_age": "The age your spouse starts Social Security. Same\ntrade-off as your own claim age.",
+ "spouse_ss_claim_age": "The age your spouse starts Social Security. Same\ntrade-off as your own claim age.\n\nIt also sets when a survivor benefit would start if you die first, and how much\nof it they get: Social Security cuts a survivor benefit claimed before 67 (to\nabout 80% at 62).",
  "spouse_ss_benefit": "Your spouse's own yearly benefit at full retirement\nage, from their ssa.gov account.\n\nSet to 0 for a partner with little or no earnings record. They will still\ncollect a SPOUSAL benefit worth up to half of yours -- the app applies that\nautomatically, so 0 here does not mean they get nothing.",
  "spouse_ss_years_worked": "Years your spouse has already paid into Social\nSecurity. 0 is fine for a partner who has not worked.",
  "spouse_ss_credits": "Your spouse's Social Security credits (0-40). Only\naffects their own benefit, not the spousal benefit.",

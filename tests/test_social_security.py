@@ -164,6 +164,31 @@ def test_survivor_factor_applies_the_widows_limit(sim):
     assert sim.ss_survivor_factor(65, 70) == pytest.approx(0.866667, abs=5e-7)  # above floor
 
 
+def test_survivor_claim_age_reduction(sim):
+    """A survivor who starts the widow(er)'s benefit before their own FRA takes
+    SSA's reduction: 28.5% at 60 prorated over the 84 months to 67, so 79.6% at
+    62 and 91.9% at 65; nothing extra for waiting past FRA."""
+    assert sim.ss_survivor_claim_factor(62) == pytest.approx(1 - 0.285 * 60 / 84)
+    assert sim.ss_survivor_claim_factor(65) == pytest.approx(1 - 0.285 * 24 / 84)
+    assert sim.ss_survivor_claim_factor(67) == pytest.approx(1.0)
+    assert sim.ss_survivor_claim_factor(70) == pytest.approx(1.0)
+
+
+def test_survivor_factor_combines_both_reductions(sim):
+    """The widow's limit CAPS the age-reduced benefit; delayed credits carry over
+    and are then reduced by the survivor's own factor."""
+    at62 = sim.ss_survivor_claim_factor(62)
+    # deceased claimed at 62 (0.70, floored to 0.825); survivor claims at 62: the
+    # survivor's own 0.796 is below the cap, so it is what they get
+    assert sim.ss_survivor_factor(62, 70, survivor_claim_age=62) == pytest.approx(at62)
+    # survivor at FRA: the cap binds
+    assert sim.ss_survivor_factor(62, 70, survivor_claim_age=67) == pytest.approx(0.825)
+    # deceased filed at 70 and lived: 1.24 x the survivor's own reduction
+    assert sim.ss_survivor_factor(70, 71, survivor_claim_age=62) == pytest.approx(1.24 * at62)
+    # died before filing at 63: the plain PIA, reduced for the survivor's age
+    assert sim.ss_survivor_factor(70, 63, survivor_claim_age=62) == pytest.approx(at62)
+
+
 def test_survivor_income_through_the_engine(base_cfg):
     """End to end, in dollars: a widow's household income after the higher earner
     dies at 63 having PLANNED to claim at 70.

@@ -189,10 +189,14 @@ def test_spouse_rules_are_skipped_when_disabled(base_cfg):
     validate_config(cfg)
 
 
-def test_basis_above_balance_is_rejected(base_cfg):
+def test_underwater_basis_is_allowed_but_negative_is_not(base_cfg):
+    """A basis ABOVE the balance is a real situation (the account is worth less
+    than was paid for it) and the ladder handles it; only negative is impossible."""
     cfg = copy.deepcopy(base_cfg)
     cfg.accounts.brokerage = 1_000.0
     cfg.accounts.brokerage_cost_basis = 2_000.0
+    validate_config(cfg)
+    cfg.accounts.brokerage_cost_basis = -1.0
     rejects(cfg, "brokerage_cost_basis")
 
 

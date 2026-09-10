@@ -388,9 +388,10 @@ simulated.""",
     "state_tax": """Your state income tax rate as a decimal. Use 0.0 for states
 with no income tax (Texas, Florida, Washington, Nevada, Tennessee and others).
 
-This is a flat approximation -- the app does not model state brackets or state
-retirement-income exclusions, which many states offer. If your state has them,
-your real tax will be lower than modelled.""",
+This is a flat approximation applied to income other than Social Security --
+most states do not tax Social Security, and the app follows that. It does not
+model state brackets or the other retirement-income exclusions many states
+offer. If your state has them, your real tax will be lower than modelled.""",
 
     "early_penalty": """The extra tax on pre-tax retirement withdrawals taken
 too early. 0.10 (10%) is current law.""",
@@ -412,8 +413,9 @@ the cautious choice. Withdrawals are still taxed as income either way.""",
 genuinely in an employer 401k/403b that you will leave in the plan.
 
 The "rule of 55" lets you take from an employer plan penalty-free if you leave
-that job in or after the year you turn 55. IRAs never qualify -- if you have
-rolled everything into an IRA, leave this unticked.""",
+that job in or after the year you turn 55, so the app only applies it for
+retirement ages of 55 and up. IRAs never qualify -- if you have rolled
+everything into an IRA, leave this unticked.""",
 
     "rmd_start_age": """The age the IRS forces you to start withdrawing from
 pre-tax accounts, whether you need the money or not.
@@ -458,7 +460,11 @@ household's income.""",
 are two years younger; +3 means three years older.""",
 
     "spouse_ss_claim_age": """The age your spouse starts Social Security. Same
-trade-off as your own claim age.""",
+trade-off as your own claim age.
+
+It also sets when a survivor benefit would start if you die first, and how much
+of it they get: Social Security cuts a survivor benefit claimed before 67 (to
+about 80% at 62).""",
 
     "spouse_ss_benefit": """Your spouse's own yearly benefit at full retirement
 age, from their ssa.gov account.

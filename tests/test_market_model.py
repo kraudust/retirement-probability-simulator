@@ -220,8 +220,11 @@ def test_assumption_report_effective_return_is_delivered(base_cfg):
 
 
 def test_assumption_report_effective_volatility_is_delivered(base_cfg):
-    """The printed effective volatility must include BOTH the within-regime
-    variance mixture and the dispersion of the regime means."""
+    """The printed effective volatility must match the standard deviation of the
+    ANNUAL log return the generator delivers -- which includes the within-regime
+    variance mixture, the dispersion of the regime means, AND the persistence of
+    regimes across the months of a year (monthly std x sqrt(12) understates it
+    by about a point)."""
     sim = RetirementSimulator(base_cfg)
     line = next(l for l in sim.assumption_report().splitlines()
                 if "stock volatility" in l)
@@ -229,8 +232,11 @@ def test_assumption_report_effective_volatility_is_delivered(base_cfg):
 
     cfg = copy.deepcopy(base_cfg)
     cfg.market.inflation_volatility = 0.0
-    stock, _, _ = paths(RetirementSimulator(cfg), 500_000, 1, seed=12)[0]
-    assert stock.std() * math.sqrt(12) == pytest.approx(printed, abs=0.004)
+    stock, _, _ = paths(RetirementSimulator(cfg), 600_000, 1, seed=12)[0]
+    n_years = len(stock) // 12
+    annual_log = stock[:n_years * 12].reshape(n_years, 12).sum(axis=1)   # paths() is already log
+    assert annual_log.std() == pytest.approx(printed, abs=0.004)
+    assert annual_log.std() > stock.std() * math.sqrt(12) + 0.004   # persistence matters
 
 
 def test_assumption_report_mentions_every_transformed_value(base_cfg):

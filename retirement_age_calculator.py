@@ -653,7 +653,8 @@ class TaxCalculator:
     def tax_breakdown(self, ordinary: float, gains: float, ss: float,
                       investment_income: float, status: str, age: float,
                       traditional_withdrawal: float = 0.0,
-                      spouse_age: Optional[float] = None) -> dict:
+                      spouse_age: Optional[float] = None,
+                      separation_age: Optional[float] = None) -> dict:
         """Every component of one year's tax bill, itemised.
 
         Args:
@@ -669,6 +670,11 @@ class TaxCalculator:
           spouse_age:             the other spouse's age on a joint return where
                                   both are alive, else None. Only affects how many
                                   times the IRC 63(f) age-65 addition is claimed.
+          separation_age:         the age at which the household left employment
+                                  (the retirement age being tested). The rule-of-55
+                                  exception requires separating from service in or
+                                  after the year you turn 55, so it is granted only
+                                  when this is >= 55. None means "not checked".
         """
         taxable_ss = self.taxable_social_security(ss, ordinary + gains, status)
         agi = ordinary + gains + taxable_ss
@@ -688,9 +694,12 @@ class TaxCalculator:
         federal_ltcg = (self._bracket_tax(taxable_total, ltcg)
                         - self._bracket_tax(taxable_ordinary, ltcg))
 
-        # Flat state approximation on the same base as federal (no state brackets,
-        # no retirement-income exclusions -- see README limitations).
-        state = self.cfg.state_tax_rate * max(0.0, agi - standard)
+        # Flat state approximation on the federal base LESS Social Security: the
+        # large majority of states exempt SS entirely, so taxing it at the state
+        # rate would overstate a typical retiree's bill by ~$1,700/yr on a $40k
+        # benefit. No state brackets, no other retirement-income exclusions --
+        # see README limitations.
+        state = self.cfg.state_tax_rate * max(0.0, ordinary + gains - standard)
 
         # Net Investment Income Tax (IRC 1411): 3.8% of the LESSER of net investment
         # income and the AGI excess over the threshold.
@@ -700,11 +709,15 @@ class TaxCalculator:
 
         # 10% additional tax on early traditional distributions, unless a 72(t)
         # SEPP / Roth-ladder plan is assumed, or the rule-of-55 exception applies
-        # (employer-plan money, separated in or after the year you turn 55).
+        # (employer-plan money, separated in or after the year you turn 55). The
+        # exception is about WHEN you left the job, not merely how old you are
+        # now: someone who retired at 45 does not qualify at 56.
         penalty = 0.0
         if traditional_withdrawal > 0 and age < self.cfg.penalty_free_age:
             penalty_free = self.cfg.use_72t_sepp
-            if self.cfg.assume_qualified_plan_age55_exception and age >= 55:
+            separated_late_enough = separation_age is None or separation_age >= 55
+            if (self.cfg.assume_qualified_plan_age55_exception and age >= 55
+                    and separated_late_enough):
                 penalty_free = True
             if not penalty_free:
                 penalty = self.cfg.early_withdrawal_penalty * traditional_withdrawal
@@ -723,10 +736,12 @@ class TaxCalculator:
     def total_tax(self, ordinary: float, gains: float, ss: float,
                   investment_income: float, status: str, age: float,
                   traditional_withdrawal: float = 0.0,
-                  spouse_age: Optional[float] = None) -> float:
+                  spouse_age: Optional[float] = None,
+                  separation_age: Optional[float] = None) -> float:
         """Total federal + state + NIIT + penalty for one year. See tax_breakdown."""
         return self.tax_breakdown(ordinary, gains, ss, investment_income, status,
-                                  age, traditional_withdrawal, spouse_age)["total"]
+                                  age, traditional_withdrawal, spouse_age,
+                                  separation_age)["total"]
 
 
 # ==============================
@@ -911,9 +926,27 @@ class RetirementSimulator:
         return max(0.0, 1 - reduction)
 
     @staticmethod
+    def ss_survivor_claim_factor(survivor_claim_age: int,
+                                 full_retirement_age: int = 67) -> float:
+        """Reduction for a SURVIVOR who starts the widow(er)'s benefit before their
+        own full retirement age.
+
+        SSA cuts a survivor benefit by up to 28.5% at age 60, prorated linearly per
+        month up to FRA (ssa.gov/benefits/survivors/survivorchartred.html): with
+        FRA 67 that is 28.5%/84 months, so claiming at 62 pays 79.6% and at 65
+        pays 91.9%. There are no delayed credits on a survivor benefit, so the
+        factor caps at 1.0. This model starts the survivor step-up at the
+        survivor's own ss_claim_age (62-70), never at 60.
+        """
+        months_early = max(0.0, (full_retirement_age - survivor_claim_age) * 12)
+        months_60_to_fra = max(1.0, (full_retirement_age - 60) * 12)
+        return max(0.0, 1.0 - 0.285 * min(1.0, months_early / months_60_to_fra))
+
+    @staticmethod
     def ss_survivor_factor(claim_age: int, death_age: float,
-                           full_retirement_age: int = 67) -> float:
-        """Factor on the DECEASED's FRA benefit that a survivor at their own FRA gets.
+                           full_retirement_age: int = 67,
+                           survivor_claim_age: Optional[int] = None) -> float:
+        """Factor on the DECEASED's FRA benefit that a survivor receives.
 
         A survivor benefit is NOT simply "whatever the deceased's claim age implied",
         because a claim age is only a plan until it is reached:
@@ -929,15 +962,27 @@ class RetirementSimulator:
             (SS_WIDOW_LIMIT_FRACTION), so an early claim cannot cut a survivor all
             the way to 70%.
 
+        survivor_claim_age, when given, applies the survivor's OWN early-claim
+        reduction (ss_survivor_claim_factor). The widow(er)'s limit is a CAP on the
+        age-reduced benefit, so with an early-claiming deceased the survivor gets
+        min(PIA x own-age factor, max(deceased's reduced benefit, 82.5% of PIA)).
+        Delayed credits the deceased earned carry over and are then reduced by the
+        survivor's own factor. None (the default) means no survivor-age reduction,
+        i.e. a survivor at or past their own FRA.
+
         Returns the factor only; the caller multiplies by the deceased's FRA benefit
         and takes the greater of it and the survivor's own benefit.
         """
+        age_factor = (1.0 if survivor_claim_age is None else
+                      RetirementSimulator.ss_survivor_claim_factor(survivor_claim_age,
+                                                                   full_retirement_age))
         if death_age >= claim_age:
-            return max(RetirementSimulator.ss_benefit_factor(claim_age,
-                                                             full_retirement_age),
-                       SS_WIDOW_LIMIT_FRACTION)
+            deceased = RetirementSimulator.ss_benefit_factor(claim_age, full_retirement_age)
+            if deceased < 1.0:
+                return min(age_factor, max(deceased, SS_WIDOW_LIMIT_FRACTION))
+            return deceased * age_factor
         months_late = max(0.0, min(death_age, 70.0) - full_retirement_age) * 12
-        return 1.0 + (2 / 3 * 0.01) * months_late
+        return (1.0 + (2 / 3 * 0.01) * months_late) * age_factor
 
     @staticmethod
     def ss_spousal_factor(claim_age: int, full_retirement_age: int = 67) -> float:
@@ -1250,7 +1295,8 @@ class RetirementSimulator:
                                 household_age: float, status: str, ss_income: float,
                                 stock_alloc: float, bond_alloc: float,
                                 rmd_amount: float,
-                                spouse_age: Optional[float] = None) -> Optional[dict]:
+                                spouse_age: Optional[float] = None,
+                                separation_age: Optional[float] = None) -> Optional[dict]:
         """Plan one tax year exactly: how much to withdraw, from where, and the tax.
 
         Solves for the smallest total gross withdrawal whose AFTER-TAX proceeds cover
@@ -1310,7 +1356,7 @@ class RetirementSimulator:
             tax = self.tax.total_tax(
                 ordinary, gains, ss_income, investment_income, status, household_age,
                 traditional_withdrawal=rmd_amount + takes["traditional"],
-                spouse_age=spouse_age)
+                spouse_age=spouse_age, separation_age=separation_age)
             return takes, tax, rmd_amount + extra - tax
 
         takes, tax, net = evaluate(max_extra)
@@ -1444,7 +1490,9 @@ class RetirementSimulator:
         roth = float(cfg.accounts.roth)
         traditional = float(cfg.accounts.traditional)
         brokerage = float(cfg.accounts.brokerage)
-        brokerage_basis = min(float(cfg.accounts.brokerage_cost_basis), brokerage)
+        # Not clamped to the balance: an account can be worth less than was paid
+        # for it, and the ladder handles basis above balance (see _ladder_withdraw).
+        brokerage_basis = float(cfg.accounts.brokerage_cost_basis)
         cash = float(cfg.accounts.cash)
         # The "checking account": funded once a year by the withdrawal plan, drained
         # monthly by the bills. Counted in the portfolio total, earns nothing.
@@ -1476,12 +1524,17 @@ class RetirementSimulator:
         # months actually lived, and an 82.5%-of-PIA floor. A spousal benefit is
         # never inheritable, so the spouse's side uses their OWN record only -- a
         # partner with no earnings record leaves no survivor benefit.
+        # Each survivor benefit is also reduced for the SURVIVOR's own claim age
+        # (ss_survivor_claim_factor): the step-up starts at their ss_claim_age.
         primary_survivor_annual = (
             self.ss_fra_benefit(cfg.life_events, primary_work_years)
-            * self.ss_survivor_factor(cfg.life_events.ss_claim_age, death_age))
+            * self.ss_survivor_factor(cfg.life_events.ss_claim_age, death_age,
+                                      survivor_claim_age=sp.ss_claim_age)
+            if sp.enabled else 0.0)
         spouse_survivor_annual = (
             self.ss_fra_benefit(sp, spouse_work_years)
-            * self.ss_survivor_factor(sp.ss_claim_age, spouse_death_own)
+            * self.ss_survivor_factor(sp.ss_claim_age, spouse_death_own,
+                                      survivor_claim_age=cfg.life_events.ss_claim_age)
             if sp.enabled else 0.0)
 
         glide_years = max(cfg.simulation.glide_path_years, 1)
@@ -1687,7 +1740,9 @@ class RetirementSimulator:
                         rmd_amount,
                         # Only a live joint return has a second 63(f) claimant; once
                         # the primary dies household_age IS the survivor's age.
-                        spouse_age=spouse_age if primary_alive else None)
+                        spouse_age=spouse_age if primary_alive else None,
+                        # Rule of 55 keys off when the job ended, not today's age.
+                        separation_age=retirement_age)
 
                     if plan is None:
                         # Even liquidating everything cannot fund the year.
@@ -1990,18 +2045,23 @@ class RetirementSimulator:
         real_stock = self.real_return(m.stock_return)
         eff_log = (self.regimes['normal']['return_boost'] * (1 - f)
                    + self.regimes['crisis']['return_boost'] * f) * 12 + math.log1p(real_stock)
-        # Total variance of the monthly log return = the within-regime variance
-        # MIXTURE plus the variance of the regime MEANS themselves. Dropping that
-        # second term (the regimes differ in drift, not just in spread) understates
-        # the delivered volatility, so both halves are counted here.
-        within = ((1 - f) * m.stock_volatility ** 2
-                  + f * (m.stock_volatility * sim.crisis_regime.volatility_multiplier) ** 2)
-        between = (f * (1 - f)
-                   * (self.regimes['normal']['return_boost']
-                      - self.regimes['crisis']['return_boost']) ** 2 * 12)
-        eff_vol = math.sqrt(within + between)
+        # Annual variance of the log return = the within-regime variance MIXTURE
+        # plus the variance of the sum of twelve regime MEANS. Regimes persist, so
+        # that second term is NOT twelve times the monthly figure: for a two-state
+        # chain with month-to-month autocorrelation rho = 1 - p_enter - p_exit,
+        # Var(sum of 12) = f(1-f) delta^2 [12 + 2 sum_{k=1}^{11} (12-k) rho^k].
+        # Treating months as independent understated the delivered figure by about
+        # a point (19.3% reported against 20.1% realised at the defaults).
         p_enter = sim.normal_regime.monthly_crisis_probability
         p_exit = sim.crisis_regime.monthly_recovery_probability
+        within = ((1 - f) * m.stock_volatility ** 2
+                  + f * (m.stock_volatility * sim.crisis_regime.volatility_multiplier) ** 2)
+        rho = 1 - p_enter - p_exit
+        persistence = 12 + 2 * sum((12 - k) * rho ** k for k in range(1, 12))
+        delta = (self.regimes['normal']['return_boost']
+                 - self.regimes['crisis']['return_boost'])
+        between = f * (1 - f) * delta ** 2 * persistence
+        eff_vol = math.sqrt(within + between)
 
         out = ["  EFFECTIVE ASSUMPTIONS (what the simulation actually uses)",
                "  " + "-" * 68,
@@ -2143,8 +2203,10 @@ def validate_config(config: Config) -> None:
     for name in ("roth", "traditional", "brokerage", "cash"):
         if getattr(c.accounts, name) < 0:
             errors.append(f"accounts.{name} must be non-negative")
-    if not 0 <= c.accounts.brokerage_cost_basis <= c.accounts.brokerage + 1e-9:
-        errors.append("brokerage_cost_basis must be between 0 and the brokerage balance")
+    # May legitimately exceed the balance (an underwater account); only negative
+    # is impossible.
+    if c.accounts.brokerage_cost_basis < 0:
+        errors.append("brokerage_cost_basis must be non-negative")
 
     # -- contributions --
     for name in ("annual_roth", "annual_traditional", "annual_brokerage", "annual_cash"):

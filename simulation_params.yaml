@@ -207,7 +207,9 @@ taxes:
       - [579600, 0.15]
       - [null, 0.20]
 
-  state_tax_rate: 0.05        # flat approximation; 0.0 for TX/FL/WA/NV/TN
+  # Flat approximation on income OTHER than Social Security (most states exempt
+  # SS). 0.0 for TX/FL/WA/NV/TN and the other no-income-tax states.
+  state_tax_rate: 0.05
 
   # The IRS charges an extra 10% on traditional 401k/IRA withdrawals before 59.5.
   # This is a major cost for retiring in your 40s or 50s.
@@ -219,9 +221,10 @@ taxes:
   # false is the conservative choice.
   use_72t_sepp: false
   # Rule of 55: employer-plan (401k/403b) money can be withdrawn penalty-free after
-  # separating from service in or after the year you turn 55. Only enable if your
-  # traditional bucket is genuinely employer-plan money you would leave in the plan;
-  # IRAs never qualify.
+  # separating from service in or after the year you turn 55. The model grants it
+  # only for retirement ages of 55 and up. Only enable if your traditional bucket
+  # is genuinely employer-plan money you would leave in the plan; IRAs never
+  # qualify.
   assume_qualified_plan_age55_exception: false
 
   # Social Security taxation thresholds on "provisional income" (other income +
