@@ -8,67 +8,60 @@ for each one, and reports the fraction in which the money lasted. It also draws 
 distribution of portfolio values across retirement, so you can see not just *whether*
 you survive but *with how much*.
 
-## Install
+## Run it
 
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-```
+Open **`RetirementSimulator.html`** in any modern browser — double-click the file.
+No install, no server, no build step. Nothing you type ever leaves your machine.
 
-Requires **Python 3.11+** (the pinned `numpy` needs it).
+The sweep runs locally using Web Workers, one per CPU core.
 
-## Run
+Fill in the **Common Settings** tab, look through **Advanced Settings** (filing
+status and state tax rate are the ones most likely to be wrong for you), then
+click **Run Simulation**. Every input has a **?** button explaining what the
+number means, how the simulation uses it, and how to pick a value.
 
-Edit `simulation_params.yaml` with your numbers, then:
+You can save your inputs to a `simulation_params.yaml` file and load it again
+later, which is the easy way to compare "what if I retire two years earlier"
+against a baseline.
 
-```bash
-python3 retirement_age_calculator.py   # CLI: prints assumptions + results, opens charts
-python3 app_main.py                    # desktop GUI with the same engine
-```
-
-The CLI prints an **effective assumptions** block before the results. Read it. Several
-configured values are transformed by the model's own mechanics — for example, crises
-raise the effective volatility above the calm-market number you entered, and the PIA
-formula rescales the Social Security benefit — and this block shows what the
-simulation is actually using.
-
-## Single-file web version
-
-`RetirementSimulator.html` is the same model as a self-contained web page: open it
-in any modern browser (double-click the file, no install, no server) and it runs the
-full sweep locally using Web Workers, one per CPU core. Nothing you type leaves the
-machine. It loads and saves the same `simulation_params.yaml` files as the desktop
-app, and every input has the same "?" help. The engine is a line-for-line port of
-`retirement_age_calculator.py`; deterministic scenarios agree to the cent, and the
-Monte Carlo results agree within sampling noise (the random streams differ, so the
-same seed does not reproduce the desktop app's numbers bit for bit).
+Read the **effective assumptions** block in the results. Several configured
+values are transformed by the model's own mechanics — crises raise the effective
+volatility above the calm-market number you entered, and the PIA formula
+rescales the Social Security benefit — and that block shows what the simulation
+is actually using.
 
 ## Tests
 
 ```bash
-pytest tests/        # ~12 seconds, run from the repo root
+node --test "tests/*.test.js"     # ~7 seconds, no dependencies
 ```
 
-The suite pins the engine three ways:
-- **Method-level known answers**: every tax quantity hand-computed from 2026 law
-  (bracket math, LTCG stacking and the 0% band, SS provisional income, NIIT,
-  penalties and their exceptions), SSA claim factors and PIA bend-point math,
-  mortality distributions against SSA cohort targets, and withdrawal-plan solver
-  invariants (money conservation to the cent, exact need coverage, RMD mechanics).
-- **Closed-form scenarios**: with volatility zeroed and lifespans fixed, the whole
-  engine reduces to arithmetic — final balances asserted to the dollar, including
-  an exact-depletion boundary and a fully hand-computed RMD year.
-- **Literature benchmarks**: Trinity-study-shaped scenarios (fixed horizon, tax-free,
-  constant real spending) must land in documented bands — e.g. the 4%/30-year rule
-  in [89%, 98%], deliberately *below* the 95-100% historical result because this
-  engine's independent fat-tailed months generate more distinct bad sequences than
-  the single historical path — with strict orderings across withdrawal rates and
-  horizons. Scenarios run on pinned seeds, so every asserted rate is exactly
-  repeatable.
+Node's test runner is built in, so there is nothing to install. The suite loads
+the engine straight out of `RetirementSimulator.html`, which means it always
+tests the exact bytes that ship — it cannot pass against a stale copy.
 
-Tests load `tests/baseline_config.yaml` (a frozen copy of the parameter file), so
-editing `simulation_params.yaml` with your own numbers can never break them.
+154 tests pin the engine four ways:
+- **Method-level known answers**: every tax quantity hand-computed from 2026 law
+  (bracket math, LTCG stacking and the 0% band, the IRC 63(f) age-65 addition, SS
+  provisional income, NIIT, penalties and their exceptions), SSA claim and
+  survivor factors, PIA bend-point math, mortality against SSA cohort targets,
+  and withdrawal-solver invariants (money conservation to the cent, exact need
+  coverage, RMD mechanics).
+- **Closed-form scenarios**: with volatility zeroed and lifespans fixed the whole
+  engine reduces to arithmetic — final balances asserted to the cent, including
+  the inflation-eroded cost basis and a full RMD year.
+- **Statistical assertions** over large samples for the parts the deterministic
+  fixtures switch OFF: Student-t scaling, stock/bond correlation, the regime
+  chain's stationary start, and whether the assumption report's printed numbers
+  are the ones actually delivered.
+- **Benchmark bands** against the Trinity study, sized to at least three standard
+  errors so they flag a real model change rather than sampling noise.
+
+**A test that only checks self-consistency is not a test of correctness.** The
+worst bugs found in this codebase lived in functions at 100% line coverage: the
+tests executed the lines but never compared a value to an independently derived
+truth. Derive expected numbers from the law or the formula by hand, never from
+what the engine currently prints.
 
 ## Everything is in today's dollars
 
@@ -262,19 +255,19 @@ Worth understanding before you act on a number:
 
 | File | Purpose |
 |---|---|
-| `retirement_age_calculator.py` | Config schema + validation, tax engine, simulation, results, plotting, CLI |
-| `app_main.py` | GUI launcher — deliberately import-light so spawned pool workers stay cheap |
-| `retirement_gui.py` | customtkinter desktop front end — a thin view over the engine |
-| `field_help.py` | Long-form help text behind each "?" button in the GUI |
-| `simulation_params.yaml` | All parameters, heavily commented |
-| `RetirementSimulator.html` | Single-file browser version: engine port + UI, no dependencies |
+| `RetirementSimulator.html` | The whole application: engine, UI and help, no dependencies |
+| `simulation_params.yaml` | Example parameters, heavily commented |
+| `tests/` | The test suite, plus a frozen `baseline_config.yaml` it runs against |
 
-The engine owns the config schema (`load_config` / `save_config` / `get_field` /
-`set_field` / `validate_config`) and both front ends go through it, so adding a
-parameter means editing the dataclass, the YAML, and one `FIELD_PATHS` entry in the
-GUI. Per-filing-status tax tables (brackets, deductions, NIIT thresholds) are
-YAML-only. `validate_config` runs on every load, save, and GUI run, and lists every
-problem it finds.
+Inside the HTML, the engine lives in `<script id="engine-src">` and the UI in the
+script block after it. The tests extract that first block and run it under Node,
+so the engine stays independently testable without a browser.
+
+The engine owns the config schema (`configFromDict` / `validateConfig` /
+`getField` / `setField`), so adding a parameter means editing `SCHEMA`, the YAML,
+and one `FIELD_PATHS` entry plus a widget. Per-filing-status tax tables
+(brackets, deductions, NIIT thresholds) are YAML-only. `validateConfig` runs on
+every load, save and run, and lists every problem it finds.
 
 ## Not financial advice
 

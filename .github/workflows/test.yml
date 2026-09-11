@@ -1,0 +1,23 @@
+name: Tests
+
+# The suite loads the engine straight out of RetirementSimulator.html, so it
+# always exercises the exact bytes that ship -- it cannot pass against a stale
+# copy of the engine.
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+      # No install step: node's test runner is built in and the engine has no
+      # dependencies at all.
+      - run: node --test "tests/*.test.js"
