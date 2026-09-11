@@ -239,9 +239,19 @@ Worth understanding before you act on a number:
   contributions come out free; earnings are taxed and penalised, and the model tracks
   no Roth basis. This matters only when the cash, brokerage and traditional rungs
   are exhausted before 59.5 -- rare with a normal account mix.
-- **Medical inflation above CPI applies only after `spending_decline_end_age`.**
-  Pre-Medicare premiums are held flat in real terms until then, which understates
-  them for someone retiring in their 40s.
+- **Pre-Medicare premiums are flat in real terms, and neither age-rating nor
+  subsidies are modelled.** Two real effects are missing and they pull opposite
+  ways. ACA premiums are legally age-rated — the same plan costs 1.44x the base
+  rate at 45, 2.23x at 55 and 3.00x at 64 — so an early retiree's premium roughly
+  doubles by 65 before any medical inflation, which makes a flat figure
+  optimistic. Against that, the premium tax credit can cut the bill sharply at low
+  taxable income, and the model never applies it, which makes a flat figure
+  pessimistic. Which dominates depends on the income your own withdrawals create;
+  note the subsidy cliff returned for 2026, so above 400% of the federal poverty
+  level the credit is zero. Enter the AVERAGE net premium you expect across the
+  years before 65 rather than today's quote.
+- **Medical inflation above CPI applies only after `spending_decline_end_age`**,
+  so the configured trend does not compound through the pre-Medicare years.
 - Stocks are treated as inflation-neutral in the long run; inflation surprises are
   applied only to bonds and cash.
 - The 72(t) flag waives the penalty but does not enforce a SEPP schedule; the

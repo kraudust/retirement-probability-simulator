@@ -103,6 +103,28 @@ def test_missing_status_row_is_rejected(base_cfg):
         rejects(cfg, f"taxes.{table} is missing an entry for 'single'")
 
 
+def test_modelled_spouse_cannot_file_as_a_single_person(base_cfg):
+    """A modelled couple taxed as one filer gets two incomes against one person's
+    deduction and brackets for every joint year -- silently overstating tax. The
+    reverse (joint status, spouse modelling off) IS legitimate: you may just not
+    want a second lifespan simulated, and the YAML says so explicitly."""
+    for bad in ("single", "head_of_household"):
+        cfg = copy.deepcopy(base_cfg)
+        cfg.spouse.enabled = True
+        cfg.taxes.filing_status = bad
+        rejects(cfg, "a modelled couple must file as married_filing_jointly")
+
+    ok = copy.deepcopy(base_cfg)
+    ok.spouse.enabled = True
+    ok.taxes.filing_status = "married_filing_jointly"
+    validate_config(ok)
+
+    single_planner = copy.deepcopy(base_cfg)      # the documented legitimate case
+    single_planner.spouse.enabled = False
+    single_planner.taxes.filing_status = "married_filing_jointly"
+    validate_config(single_planner)
+
+
 def test_negative_deductions_are_rejected(base_cfg):
     cfg = copy.deepcopy(base_cfg)
     cfg.taxes.standard_deductions["single"] = -1

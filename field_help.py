@@ -155,14 +155,27 @@ Medical costs have historically outrun everything else. 0.015 (1.5% a year
 above inflation) is a reasonable, moderate assumption.""",
 
     # ---------------------------------------------------------------- healthcare
-    "pre_medicare_premium": """Yearly health insurance cost PER PERSON before
-Medicare starts, in today's dollars.
+    "pre_medicare_premium": """Yearly health insurance cost PER PERSON before Medicare starts, in today's
+dollars. Enter the AVERAGE you expect across all the years before 65 -- not
+today's quote -- because the model holds this figure flat in real terms.
 
-This is the number that makes early retirement expensive. Before 65 you buy
-your own coverage on the open market with no employer paying most of it.
-$12,000 a year is typical for one unsubsidised adult including out-of-pocket
-costs -- though if your taxable income in retirement is low, subsidies can cut
-this a lot.""",
+Two things pull in opposite directions, and neither is simulated:
+
+  * ACA premiums are LEGALLY age-rated. Under the federal default curve the same
+    plan costs 1.44x the base rate at 45, 2.23x at 55 and 3.00x at 64 -- the
+    legal maximum. So a 45-year-old's premium roughly doubles by 64 with no
+    medical inflation at all. Averaged over the pre-65 years that is about 1.5x
+    the age-45 quote, 1.3x from 50, 1.2x from 55.
+  * Subsidies (the premium tax credit) can cut the bill sharply if your taxable
+    income in retirement is low, and they are driven by the income YOUR
+    withdrawals create. Note the "subsidy cliff" returned for 2026: above 400%
+    of the federal poverty level the credit is zero, so a little extra
+    traditional-account income can cost a lot of subsidy.
+
+Practical guidance: get a real quote from healthcare.gov for your age and
+expected income, then scale it up using the age multipliers above. $12,000 a
+year is a reasonable placeholder for one unsubsidised adult including
+out-of-pocket costs.""",
 
     "medicare_premium": """Yearly health cost PER PERSON once Medicare starts,
 in today's dollars.

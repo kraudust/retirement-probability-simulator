@@ -588,6 +588,14 @@ function validateConfig(c) {
   const t = c.taxes;
   if (!VALID_FILING_STATUSES.includes(t.filing_status))
     errors.push(`filing_status must be one of ${VALID_FILING_STATUSES.join(', ')}`);
+  // Joint status with spouse modelling OFF is legitimate (you may just not want a
+  // second lifespan simulated). The reverse is not: a modelled couple taxed as one
+  // filer gets two incomes against one person's deduction and brackets for every
+  // year both are alive. The survivor switches to single on the first death.
+  else if (c.spouse.enabled && !TWO_PERSON_FILING_STATUSES.includes(t.filing_status))
+    errors.push(`taxes.filing_status is '${t.filing_status}' but spouse.enabled is true `
+                + `-- a modelled couple must file as married_filing_jointly while both `
+                + `are alive (the survivor switches to single automatically)`);
   for (const tableName of ['standard_deductions', 'additional_standard_deductions_65plus', 'federal_brackets',
                            'ltcg_brackets', 'ss_provisional_thresholds', 'niit_thresholds']) {
     const table = t[tableName];
@@ -2124,7 +2132,7 @@ const FIELD_HELP = {
  "decline_rate": "How fast spending falls each year during the decline\nwindow, as a multiplier.\n\n0.99 means you spend 1% less each year than the year before. 1.0 turns the\ndecline off entirely, which is the conservative choice.",
  "decline_end": "The age at which the spending decline stops.\n\nAfter this, base spending stays flat at its reduced level and it is healthcare\ncosts that start rising instead.",
  "healthcare_rate": "How fast health premiums grow each year after the\ndecline ends, above general inflation.\n\nMedical costs have historically outrun everything else. 0.015 (1.5% a year\nabove inflation) is a reasonable, moderate assumption.",
- "pre_medicare_premium": "Yearly health insurance cost PER PERSON before\nMedicare starts, in today's dollars.\n\nThis is the number that makes early retirement expensive. Before 65 you buy\nyour own coverage on the open market with no employer paying most of it.\n$12,000 a year is typical for one unsubsidised adult including out-of-pocket\ncosts -- though if your taxable income in retirement is low, subsidies can cut\nthis a lot.",
+ "pre_medicare_premium": "Yearly health insurance cost PER PERSON before Medicare starts, in today's\ndollars. Enter the AVERAGE you expect across all the years before 65 -- not\ntoday's quote -- because the model holds this figure flat in real terms.\n\nTwo things pull in opposite directions, and neither is simulated:\n\n  * ACA premiums are LEGALLY age-rated. Under the federal default curve the same\n    plan costs 1.44x the base rate at 45, 2.23x at 55 and 3.00x at 64 -- the\n    legal maximum. So a 45-year-old's premium roughly doubles by 64 with no\n    medical inflation at all. Averaged over the pre-65 years that is about 1.5x\n    the age-45 quote, 1.3x from 50, 1.2x from 55.\n  * Subsidies (the premium tax credit) can cut the bill sharply if your taxable\n    income in retirement is low, and they are driven by the income YOUR\n    withdrawals create. Note the \"subsidy cliff\" returned for 2026: above 400%\n    of the federal poverty level the credit is zero, so a little extra\n    traditional-account income can cost a lot of subsidy.\n\nPractical guidance: get a real quote from healthcare.gov for your age and\nexpected income, then scale it up using the age multipliers above. $12,000 a\nyear is a reasonable placeholder for one unsubsidised adult including\nout-of-pocket costs.",
  "medicare_premium": "Yearly health cost PER PERSON once Medicare starts,\nin today's dollars.\n\nMedicare is not free. Roughly $2,500 a year covers Part B, Part D and a\nsupplement policy.",
  "medicare_age": "The age Medicare begins. This is 65 under current law;\nthere is no reason to change it unless you are testing a what-if.",
  "ss_claim_age": "The age you start taking Social Security.\n\nClaiming early permanently shrinks the monthly check; waiting permanently grows\nit. At 62 you get 70% of your full benefit; at 67 (full retirement age) you get\n100%; at 70 you get 124%.\n\nWaiting is often the better deal if you expect to live into your 80s, and it\ndoubles as insurance against living a very long time. But claiming early can\nmake sense if you retire well before 67 and would otherwise have to sell\ninvestments in a downturn to bridge the gap.",

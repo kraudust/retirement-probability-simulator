@@ -2315,6 +2315,17 @@ def validate_config(config: Config) -> None:
     #    'single' must too, because a surviving spouse files single --
     if c.taxes.filing_status not in VALID_FILING_STATUSES:
         errors.append(f"filing_status must be one of {VALID_FILING_STATUSES}")
+    # Turning spouse modelling OFF while filing jointly is legitimate -- you may
+    # simply not want a second lifespan simulated. The reverse is not: a modelled
+    # spouse taxed as a single filer gets two people's income against one person's
+    # deduction and brackets for every year both are alive, which silently
+    # overstates tax for the whole joint phase. The survivor still switches to
+    # single on the first death; that is handled by household_filing_status.
+    elif c.spouse.enabled and c.taxes.filing_status not in TWO_PERSON_FILING_STATUSES:
+        errors.append(
+            f"taxes.filing_status is '{c.taxes.filing_status}' but spouse.enabled is "
+            "true -- a modelled couple must file as married_filing_jointly while "
+            "both are alive (the survivor switches to single automatically)")
     for table_name in ("standard_deductions", "additional_standard_deductions_65plus",
                        "federal_brackets", "ltcg_brackets",
                        "ss_provisional_thresholds", "niit_thresholds"):
