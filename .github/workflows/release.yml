@@ -1,0 +1,73 @@
+name: Release
+
+# Push a tag like v2.0.0 and this publishes a GitHub Release with
+# RetirementSimulator.html attached, so people get a direct download link
+# instead of having to find the file in the repo and use "Raw" -> save-as.
+#
+# A bare `git push origin v2.0.0` only creates a TAG. The Release is a separate
+# GitHub object, and this is what creates it.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to publish a release for (e.g. v2.0.0)"
+        required: true
+
+permissions:
+  contents: write        # needed to create the release
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+
+      # Never publish a build whose engine tests fail. The suite reads the
+      # engine out of the HTML, so this tests the exact file being attached.
+      - name: Run the test suite
+        run: node --test "tests/*.test.js"
+
+      - uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ inputs.tag || github.ref_name }}
+          files: RetirementSimulator.html
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          body: |
+            ## Download
+
+            Grab **RetirementSimulator.html** below, then double-click it. It
+            opens in your browser — no install, no sign-up, nothing to trust.
+
+            Everything you type stays on your own machine. The file does not
+            talk to the internet at all; you can open it with the wifi off.
+
+            ### Using it
+
+            Fill in the **Common Settings** tab, then look through **Advanced
+            Settings** — the filing status and state tax rate are the ones most
+            likely to be wrong for you by default. Every input has a **?**
+            button explaining what the number means and how to choose one.
+
+            Click **Run Simulation** and give it a minute.
+
+            **Every dollar figure is in today's money**, so you can compare the
+            results directly against what you spend now.
+
+            ### Please read
+
+            This is a planning tool built by a friend, not financial advice and
+            not a prediction. It runs thousands of randomised futures to show a
+            *range* of outcomes, and that range is only as good as the
+            assumptions you type in. Use it to compare choices against each
+            other — "how much does one more working year buy me?" — rather than
+            to trust any single number.
